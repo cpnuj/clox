@@ -1,0 +1,35 @@
+{
+TK_AND
+TK_CLASS
+TK_ELSE
+TK_FALSE
+TK_FOR
+TK_FUN
+TK_IF
+TK_NIL
+TK_OR
+TK_PRINT
+TK_RETURN
+TK_SUPER
+TK_THIS
+TK_TRUE
+TK_VAR
+TK_WHILE
+}
+
+and TK_AND
+class TK_CLASS
+else TK_ELSE
+false TK_FALSE
+for TK_FOR
+fun TK_FUN
+if TK_IF
+nil TK_NIL
+or TK_OR
+print TK_PRINT
+return TK_RETURN
+super TK_SUPER
+this TK_THIS
+true TK_TRUE
+var TK_VAR
+while TK_WHILE
