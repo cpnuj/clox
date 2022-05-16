@@ -10,6 +10,7 @@
 typedef enum {
     OP_CONSTANT,
     OP_RETURN,
+    OP_ADD,
 } OpCode;
 
 typedef struct {
@@ -27,3 +28,4 @@ void freeChunk(Chunk* chunk);
 int addConstant(Chunk* chunk, Value value);
 
 #endif
+

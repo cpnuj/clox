@@ -2,7 +2,6 @@
 #include <stdio.h>
 
 #include "lexer.h"
-#include "keyword.h"
 
 void lexerSkipWhitespace(Lexer *l);
 int lexerEnd(Lexer *l);
@@ -27,9 +26,13 @@ void lexerSkipWhitespace(Lexer *l) {
         char c = lexerPeek(l);
         switch (c) {
             case ' ':
-            case '\n':
             case '\r':
             case '\t':
+                lexerForward(l);
+                break;
+            // new line
+            case '\n':
+                l->line++;
                 lexerForward(l);
                 break;
             // comment
@@ -93,6 +96,7 @@ int isKeyword(char *s, int len) {
 Token makeToken(Lexer *l, TokenType type) {
     Token tk = {
         .type = type,
+        .line = l->line,
         .at   = l->src + l->start,
         .len  = l->end - l->start,
     };
@@ -143,17 +147,14 @@ TokenType lexString(Lexer *l) {
 
 Lexer* LexNew(char *src, int len) {
     Lexer *l = (Lexer*)malloc(sizeof(Lexer));
-    l->start = 0;
-    l->end = 0;
-    l->len = len;
-    l->src = src;
-    l->err = 0;
+    LexInit(l, src, len);
     return l;
 }
 
 void LexInit(Lexer *l, char *src, int len) {
     l->start = 0;
     l->end = 0;
+    l->line = 1;
     l->len = len;
     l->src = src;
     l->err = 0;
@@ -216,8 +217,20 @@ TokenType TokenGetType(Token *token) {
     return token->type;
 }
 
+int TokenGetLine(Token *token) {
+    return token->line;
+}
+
 char* TokenGetLexem(Token *token, char *dest) {
     sprintf(dest, "%.*s", token->len, token->at);
     return dest;
+}
+
+char* TokenGetLexemStart(Token *token) {
+    return token->at;
+}
+
+int TokenGetLexemLen(Token *token) {
+    return token->len;
 }
 

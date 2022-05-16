@@ -1,6 +1,8 @@
 #ifndef clox_lexer_h
 #define clox_lexer_h
 
+#include "keyword.h" // include keyword.h to include keyword tokens
+
 typedef int TokenType;
 
 #define TK_ERR -1
@@ -36,6 +38,7 @@ typedef int TokenType;
 typedef struct {
     int  start;
     int  end;
+    int  line;  // current line
     int  len;
     char *src;
 
@@ -45,6 +48,7 @@ typedef struct {
 
 typedef struct {
     TokenType type;
+    int line;
     char *at;       // the lexem begins at source
     int len;        // the lexem's len
 } Token;
@@ -55,7 +59,10 @@ Token Lex(Lexer *l);
 char* LexError(Lexer *l);
 
 TokenType TokenGetType(Token *token);
+int TokenGetLine(Token *token);
 char* TokenGetLexem(Token *token, char *dst);
+char* TokenGetLexemStart(Token *token);
+int TokenGetLexemLen(Token *token);
 
 #endif
 

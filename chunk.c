@@ -5,6 +5,7 @@ void initChunk(Chunk* chunk) {
     chunk->len = 0;
     chunk->cap = 0;
     chunk->code = NULL;
+    chunk->lines = NULL;
     initValueArray(&chunk->constants);
 }
 
@@ -30,3 +31,4 @@ int addConstant(Chunk* chunk, Value value) {
     writeValueArray(&chunk->constants, value);
     return chunk->constants.len - 1;
 }
+
