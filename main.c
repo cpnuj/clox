@@ -6,13 +6,17 @@
 #include "compiler.h"
 #include "debug.h"
 #include "lexer.h"
+#include "vm.h"
+
+VM vm;
 
 void interprete(char *src) {
-    Chunk chunk;
-    initChunk(&chunk);
-    Compile(src, &chunk);
-    disassembleChunk(&chunk, "hello kitty");
-    freeChunk(&chunk);
+    initVM(&vm);
+    Compile(src, &vm.chunk);
+    disassembleChunk(&vm.chunk, "hello kitty");
+    VMrun(&vm);
+    printValue(VMpop(&vm));
+    printf("\n");
 }
 
 static void repl() {

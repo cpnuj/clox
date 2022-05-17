@@ -24,6 +24,14 @@ int disassembleInstruction(Chunk* chunk, int offset) {
         return constantInstruction("OP_CONSTANT", chunk, offset);
     case OP_ADD:
         return simpleInstruction("OP_ADD", offset);
+    case OP_MINUS:
+        return simpleInstruction("OP_MINUS", offset);
+    case OP_MUL:
+        return simpleInstruction("OP_MUL", offset);
+    case OP_DIV:
+        return simpleInstruction("OP_DIV", offset);
+    case OP_NEGATIVE:
+        return simpleInstruction("OP_NEGATIVE", offset);
     default:
         printf("Unknown opcode %d\n", instruction);
         return offset + 1;
