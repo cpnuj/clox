@@ -8,6 +8,7 @@
 #include "value.h"
 
 typedef enum {
+    OP_NONE,
     OP_RETURN,
     OP_CONSTANT,
     OP_NEGATIVE,
@@ -15,6 +16,16 @@ typedef enum {
     OP_ADD,
     OP_MUL,
     OP_DIV,
+    OP_BANG,
+    OP_BANG_EQUAL,
+    OP_EQUAL,
+    OP_EQUAL_EQUAL,
+    OP_GREATER,
+    OP_GREATER_EQUAL,
+    OP_LESS,
+    OP_LESS_EQUAL,
+    OP_AND,
+    OP_OR,
 } OpCode;
 
 typedef struct {

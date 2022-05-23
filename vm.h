@@ -7,11 +7,14 @@
 #define STACK_MAX 256
 
 typedef struct {
-    int pc;     // Program counter
+    int   pc;   // Program counter
     Value *sp;  // Stack pointer
 
     Chunk chunk;
     Value stack[STACK_MAX];
+
+    int  error;
+    char *errmsg;
 } VM;
 
 void initVM(VM *vm);
