@@ -20,8 +20,8 @@ typedef struct {
 #define VALUE_AS_BOOL(value)   (value.as.boolean)
 #define VALUE_AS_NUMBER(value) (value.as.number)
 
-Value NewBoolValue(bool boolean);
-Value NewNumValue(double number);
+Value value_make_bool(bool boolean);
+Value value_make_number(double number);
 
 typedef struct {
     int len;
@@ -29,10 +29,10 @@ typedef struct {
     Value* value;
 } ValueArray;
 
-void initValueArray(ValueArray* va);
-void writeValueArray(ValueArray* va, Value v);
-void freeValueArray(ValueArray* va);
+void value_array_init(ValueArray* va);
+void value_array_write(ValueArray* va, Value v);
+void value_array_free(ValueArray* va);
 
-void printValue(Value v);
+void value_print(Value v);
 
 #endif

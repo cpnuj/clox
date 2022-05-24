@@ -7,19 +7,19 @@
 
 #include "compiler.h"
 
-static void emitByte (Parser *parser, uint8_t byte);
-static void emitBytes (Parser *parser, uint8_t b1, uint8_t b2);
-static void emitConstant (Parser *parser, Value value);
-static void emitReturn (Parser *parser);
+static void emit_byte (Parser *parser, uint8_t byte);
+static void emit_bytes (Parser *parser, uint8_t b1, uint8_t b2);
+static void emit_constant (Parser *parser, Value value);
+static void emit_return (Parser *parser);
 
-static uint8_t makeConstant (Chunk *chunk, Value value);
+static uint8_t make_constant (Chunk *chunk, Value value);
 
-void parserInit (Parser *parser, char *src);
+void parser_init (Parser *parser, char *src);
 void parserSetChunk (Parser *p, Chunk *chunk);
-Token parserPeek (Parser *parser);
-Token parserPrev (Parser *parser);
-Token parserForward (Parser *parser);
-Token parserConsume (Parser *parser, TokenType type);
+Token parser_peek (Parser *parser);
+Token parser_prev (Parser *parser);
+Token parser_forward (Parser *parser);
+Token parser_consume (Parser *parser, TokenType type);
 
 typedef enum
 {
@@ -38,40 +38,40 @@ typedef enum
 
 typedef void (*nudFn) (Parser *);
 typedef void (*ledFn) (Parser *);
-nudFn tokenNud (Token token);
-ledFn tokenLed (Token token);
-bindingPower tokenBindingPower (Token token);
+nudFn token_nud (Token token);
+ledFn token_led (Token token);
+bindingPower token_bp (Token token);
 
-void parseExpression (Parser *p, bindingPower bp);
-void parseLiteral (Parser *parser);
-void parseNegative (Parser *p);
-void parseGroup (Parser *p);
-OpCode binaryOpCodeFromToken (Token token);
-void parseBinaryOp (Parser *p);
+void parse_expr (Parser *p, bindingPower bp);
+void parse_literal (Parser *parser);
+void parse_negative (Parser *p);
+void parse_group (Parser *p);
+OpCode binary_opcode_from_token (Token token);
+void parse_binary_op (Parser *p);
 
-static void emitByte (Parser *parser, uint8_t byte)
+static void emit_byte (Parser *parser, uint8_t byte)
 {
-  writeChunk (parser->chunk, byte, parser->prev.line);
+  chunk_write (parser->chunk, byte, parser->prev.line);
 }
 
-static void emitBytes (Parser *parser, uint8_t b1, uint8_t b2)
+static void emit_bytes (Parser *parser, uint8_t b1, uint8_t b2)
 {
-  emitByte (parser, b1);
-  emitByte (parser, b2);
+  emit_byte (parser, b1);
+  emit_byte (parser, b2);
 }
 
-static void emitConstant (Parser *parser, Value value)
+static void emit_constant (Parser *parser, Value value)
 {
   // TODO: Do not make new constant to value array for bool and nil
   // to reduce memory usage.
-  emitBytes (parser, OP_CONSTANT, makeConstant (parser->chunk, value));
+  emit_bytes (parser, OP_CONSTANT, make_constant (parser->chunk, value));
 }
 
-static void emitReturn (Parser *parser) { emitByte (parser, OP_RETURN); }
+static void emit_return (Parser *parser) { emit_byte (parser, OP_RETURN); }
 
-static uint8_t makeConstant (Chunk *chunk, Value value)
+static uint8_t make_constant (Chunk *chunk, Value value)
 {
-  int constant = addConstant (chunk, value);
+  int constant = chunk_add_constant (chunk, value);
   if (constant > UINT8_MAX)
   {
     // FIXME: add error
@@ -80,83 +80,83 @@ static uint8_t makeConstant (Chunk *chunk, Value value)
   return (uint8_t)constant;
 }
 
-void parserInit (Parser *parser, char *src)
+void parser_init (Parser *parser, char *src)
 {
-  LexInit (&parser->lexer, src, strlen (src));
+  lex_init (&parser->lexer, src, strlen (src));
   // initial forward
-  parserForward (parser);
+  parser_forward (parser);
 }
 
 void parserSetChunk (Parser *p, Chunk *chunk) { p->chunk = chunk; }
 
-Token parserPeek (Parser *parser) { return parser->curr; }
+Token parser_peek (Parser *parser) { return parser->curr; }
 
-Token parserPrev (Parser *parser) { return parser->prev; }
+Token parser_prev (Parser *parser) { return parser->prev; }
 
-Token parserForward (Parser *p)
+Token parser_forward (Parser *p)
 {
   p->prev = p->curr;
-  p->curr = Lex (&p->lexer);
+  p->curr = lex (&p->lexer);
   return p->prev;
 }
 
-Token parserConsume (Parser *p, TokenType type)
+Token parser_consume (Parser *p, TokenType type)
 {
-  Token token = parserPeek (p);
+  Token token = parser_peek (p);
   // FIXME: Replace assert with error handling
-  assert (TokenGetType (&token) == type);
-  return parserForward (p);
+  assert (token_type (&token) == type);
+  return parser_forward (p);
 }
 
-void Compile (char *src, Chunk *chunk)
+void compile (char *src, Chunk *chunk)
 {
   Parser p;
-  parserInit (&p, src);
+  parser_init (&p, src);
   parserSetChunk (&p, chunk);
-  parseExpression (&p, BP_NONE);
-  parserConsume (&p, TK_EOF);
+  parse_expr (&p, BP_NONE);
+  parser_consume (&p, TK_EOF);
 
-  emitByte (&p, OP_RETURN);
+  emit_byte (&p, OP_RETURN);
 }
 
 // Pratt parsing algorithm
 
-void parseExpression (Parser *p, bindingPower bp)
+void parse_expr (Parser *p, bindingPower bp)
 {
-  nudFn nud = tokenNud (parserForward (p));
+  nudFn nud = token_nud (parser_forward (p));
   if (nud)
   {
     nud (p);
   }
-  while (bp < tokenBindingPower (parserPeek (p)))
+  while (bp < token_bp (parser_peek (p)))
   {
-    ledFn led = tokenLed (parserForward (p));
+    ledFn led = token_led (parser_forward (p));
     assert (led);
     led (p);
   }
 }
 
-nudFn tokenNud (Token token)
+nudFn token_nud (Token token)
 {
-  TokenType t = TokenGetType (&token);
+  TokenType t = token_type (&token);
   switch (t)
   {
     case TK_MINUS:
-      return parseNegative;
+      return parse_negative;
     case TK_LEFT_PAREN:
-      return parseGroup;
+      return parse_group;
     case TK_NIL:
     case TK_TRUE:
     case TK_FALSE:
     case TK_NUMBER:
-      return parseLiteral;
+      return parse_literal;
   }
   return 0;
 }
 
-ledFn tokenLed (Token token)
+ledFn token_led (Token token)
 {
-  TokenType t = TokenGetType (&token);
+  TokenType t = token_type (&token);
   switch (t)
   {
     case TK_MINUS:
@@ -171,14 +171,14 @@ ledFn tokenLed (Token token)
     case TK_LESS_EQUAL:
     case TK_AND:
     case TK_OR:
-      return parseBinaryOp;
+      return parse_binary_op;
   }
   return 0;
 }
 
-bindingPower tokenBindingPower (Token token)
+bindingPower token_bp (Token token)
 {
-  TokenType t = TokenGetType (&token);
+  TokenType t = token_type (&token);
   switch (t)
   {
     case TK_MINUS:
@@ -203,47 +203,47 @@ bindingPower tokenBindingPower (Token token)
   return BP_NONE;
 }
 
-void parseLiteral (Parser *p)
+void parse_literal (Parser *p)
 {
   Value v;
   double number;
 
-  Token token = parserPrev (p);
-  switch (TokenGetType (&token))
+  Token token = parser_prev (p);
+  switch (token_type (&token))
   {
     case TK_NUMBER:
-      number = strtod (TokenGetLexemStart (&token), NULL);
-      v = NewNumValue (number);
+      number = strtod (token_lexem_start (&token), NULL);
+      v = value_make_number (number);
       break;
     case TK_TRUE:
-      v = NewBoolValue (true);
+      v = value_make_bool (true);
       break;
     case TK_FALSE:
-      v = NewBoolValue (false);
+      v = value_make_bool (false);
       break;
     case TK_NIL:
       // TODO
       return;
   }
-  emitConstant (p, v);
+  emit_constant (p, v);
 }
 
-void parseNegative (Parser *p)
+void parse_negative (Parser *p)
 {
   // TODO: Is it right to use BP_UNARY ?
-  parseExpression (p, BP_UNARY);
-  emitByte (p, OP_NEGATIVE);
+  parse_expr (p, BP_UNARY);
+  emit_byte (p, OP_NEGATIVE);
 }
 
-void parseGroup (Parser *p)
+void parse_group (Parser *p)
 {
-  parseExpression (p, BP_NONE);
-  parserConsume (p, TK_RIGHT_PAREN);
+  parse_expr (p, BP_NONE);
+  parser_consume (p, TK_RIGHT_PAREN);
 }
 
-OpCode binaryOpCodeFromToken (Token token)
+OpCode binary_opcode_from_token (Token token)
 {
-  switch (TokenGetType (&token))
+  switch (token_type (&token))
   {
     case TK_PLUS:
       return OP_ADD;
@@ -274,9 +274,9 @@ OpCode binaryOpCodeFromToken (Token token)
   }
 }
 
-void parseBinaryOp (Parser *p)
+void parse_binary_op (Parser *p)
 {
-  Token token = parserPrev (p);
-  parseExpression (p, tokenBindingPower (token));
-  emitByte (p, binaryOpCodeFromToken (token));
+  Token token = parser_prev (p);
+  parse_expr (p, token_bp (token));
+  emit_byte (p, binary_opcode_from_token (token));
 }

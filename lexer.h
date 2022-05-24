@@ -53,16 +53,16 @@ typedef struct {
     int len;        // the lexem's len
 } Token;
 
-Lexer* LexNew(char *src, int len);
-void LexInit(Lexer *l, char *src, int len);
-Token Lex(Lexer *l);
-char* LexError(Lexer *l);
+Lexer* lex_new(char *src, int len);
+void lex_init(Lexer *l, char *src, int len);
+Token lex(Lexer *l);
+char* lex_error(Lexer *l);
 
-TokenType TokenGetType(Token *token);
-int TokenGetLine(Token *token);
-char* TokenGetLexem(Token *token, char *dst);
-char* TokenGetLexemStart(Token *token);
-int TokenGetLexemLen(Token *token);
+TokenType token_type(Token *token);
+int token_line(Token *token);
+char* token_lexem(Token *token, char *dst);
+char* token_lexem_start(Token *token);
+int token_lexem_len(Token *token);
 
 #endif
 

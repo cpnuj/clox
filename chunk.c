@@ -1,16 +1,16 @@
 #include "chunk.h"
 #include "memory.h"
 
-void initChunk (Chunk *chunk)
+void chunk_init (Chunk *chunk)
 {
   chunk->len = 0;
   chunk->cap = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
-  initValueArray (&chunk->constants);
+  value_array_init (&chunk->constants);
 }
 
-void writeChunk (Chunk *chunk, uint8_t byte, int line)
+void chunk_write (Chunk *chunk, uint8_t byte, int line)
 {
   if (chunk->cap < chunk->len + 1)
   {
@@ -24,15 +24,15 @@ void writeChunk (Chunk *chunk, uint8_t byte, int line)
   chunk->len++;
 }
 
-void freeChunk (Chunk *chunk)
+void chunk_free (Chunk *chunk)
 {
-  freeValueArray (&chunk->constants);
+  value_array_free (&chunk->constants);
   FREE_ARRAY (uint8_t, chunk->code, chunk->cap);
-  initChunk (chunk);
+  chunk_init (chunk);
 }
 
-int addConstant (Chunk *chunk, Value value)
+int chunk_add_constant (Chunk *chunk, Value value)
 {
-  writeValueArray (&chunk->constants, value);
+  value_array_write (&chunk->constants, value);
   return chunk->constants.len - 1;
 }

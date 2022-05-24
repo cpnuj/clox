@@ -17,10 +17,10 @@ typedef struct {
     char *errmsg;
 } VM;
 
-void initVM(VM *vm);
-void VMrun(VM *vm);
-void VMpush(VM *vm, Value v);
-Value VMpop(VM *vm); 
+void vm_init(VM *vm);
+void vm_run(VM *vm);
+void vm_push(VM *vm, Value v);
+Value vm_pop(VM *vm); 
 
 #endif
 

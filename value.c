@@ -4,7 +4,7 @@
 #include "memory.h"
 #include "value.h"
 
-Value NewBoolValue (bool boolean)
+Value value_make_bool (bool boolean)
 {
   Value value;
   value.Type = VT_BOOL;
@@ -12,7 +12,7 @@ Value NewBoolValue (bool boolean)
   return value;
 }
 
-Value NewNumValue (double number)
+Value value_make_number (double number)
 {
   Value value;
   value.Type = VT_NUM;
@@ -20,14 +20,14 @@ Value NewNumValue (double number)
   return value;
 }
 
-void initValueArray (ValueArray *va)
+void value_array_init (ValueArray *va)
 {
   va->len = 0;
   va->cap = 0;
   va->value = NULL;
 }
 
-void writeValueArray (ValueArray *va, Value v)
+void value_array_write (ValueArray *va, Value v)
 {
   if (va->cap < va->len + 1)
   {
@@ -39,13 +39,13 @@ void writeValueArray (ValueArray *va, Value v)
   va->len++;
 }
 
-void freeValueArray (ValueArray *va)
+void value_array_free (ValueArray *va)
 {
   FREE_ARRAY (Value, va->value, va->cap);
-  initValueArray (va);
+  value_array_init (va);
 }
 
-void printValue (Value v)
+void value_print (Value v)
 {
   switch (v.Type)
   {

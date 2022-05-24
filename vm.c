@@ -3,25 +3,25 @@
 #include "debug.h"
 #include "vm.h"
 
-void vmerror (VM *vm, char *errmsg);
+void vm_error (VM *vm, char *errmsg);
 
-uint8_t fetchCode (VM *vm);
-void runInstruction (VM *vm, uint8_t i);
+uint8_t fetch_code (VM *vm);
+void run_instruction (VM *vm, uint8_t i);
 
-void opConstant (VM *vm);
-void opNegative (VM *vm);
-void opBinaryNumber (VM *vm, uint8_t op);
-void opBinaryBool (VM *vm, uint8_t op);
+void op_constant (VM *vm);
+void op_negative (VM *vm);
+void op_binary_number (VM *vm, uint8_t op);
+void op_binary_bool (VM *vm, uint8_t op);
 
-void initVM (VM *vm)
+void vm_init (VM *vm)
 {
   vm->pc = 0;
   vm->sp = vm->stack - 1;
   vm->error = 0;
-  initChunk (&vm->chunk);
+  chunk_init (&vm->chunk);
 }
 
-void VMpush (VM *vm, Value v)
+void vm_push (VM *vm, Value v)
 {
   if (vm->sp == vm->stack + STACK_MAX - 1)
   {
@@ -32,7 +32,7 @@ void VMpush (VM *vm, Value v)
   *vm->sp = v;
 }
 
-Value VMpop (VM *vm)
+Value vm_pop (VM *vm)
 {
   if (vm->sp < vm->stack)
   {
@@ -44,53 +44,53 @@ Value VMpop (VM *vm)
   return v;
 }
 
-void VMrun (VM *vm)
+void vm_run (VM *vm)
 {
   while (1)
   {
     if (vm->pc >= vm->chunk.len)
     {
-      vmerror (vm, "VM error: pc out of bound");
+      vm_error (vm, "VM error: pc out of bound");
     }
     if (vm->error)
     {
       fprintf (stderr, "%s\n", vm->errmsg);
       return;
     }
-    uint8_t instruction = fetchCode (vm);
+    uint8_t instruction = fetch_code (vm);
     if (instruction == OP_RETURN)
     {
       return;
     }
-    runInstruction (vm, instruction);
+    run_instruction (vm, instruction);
   }
 }
 
-void vmerror (VM *vm, char *errmsg)
+void vm_error (VM *vm, char *errmsg)
 {
   vm->error = 1;
   vm->errmsg = errmsg;
 }
 
-uint8_t fetchCode (VM *vm)
+uint8_t fetch_code (VM *vm)
 {
   if (vm->pc >= vm->chunk.len)
   {
-    panic ("VM error: fetchCode overflow");
+    panic ("VM error: fetch_code overflow");
   }
   uint8_t code = vm->chunk.code[vm->pc];
   vm->pc++;
   return code;
 }
 
-void runInstruction (VM *vm, uint8_t i)
+void run_instruction (VM *vm, uint8_t i)
 {
   switch (i)
   {
     case OP_CONSTANT:
-      return opConstant (vm);
+      return op_constant (vm);
     case OP_NEGATIVE:
-      return opNegative (vm);
+      return op_negative (vm);
 
     case OP_ADD:
     case OP_MINUS:
@@ -104,41 +104,41 @@ void runInstruction (VM *vm, uint8_t i)
     case OP_GREATER_EQUAL:
     case OP_LESS:
     case OP_LESS_EQUAL:
-      return opBinaryNumber (vm, i);
+      return op_binary_number (vm, i);
 
     case OP_AND:
     case OP_OR:
-      return opBinaryBool (vm, i);
+      return op_binary_bool (vm, i);
   }
   // TODO: panic on unknown code
-  vmerror (vm, "unknown code");
+  vm_error (vm, "unknown code");
 }
 
-void opConstant (VM *vm)
+void op_constant (VM *vm)
 {
-  uint8_t off = fetchCode (vm);
-  VMpush (vm, vm->chunk.constants.value[off]);
+  uint8_t off = fetch_code (vm);
+  vm_push (vm, vm->chunk.constants.value[off]);
 }
 
-void opNegative (VM *vm)
+void op_negative (VM *vm)
 {
-  Value value = VMpop (vm);
+  Value value = vm_pop (vm);
   if (value.Type != VT_NUM)
   {
-    vmerror (vm, "type error: need number type");
+    vm_error (vm, "type error: need number type");
     return;
   }
   double number = VALUE_AS_NUMBER (value);
-  VMpush (vm, NewNumValue (-number));
+  vm_push (vm, value_make_number (-number));
 }
 
-void opBinaryNumber (VM *vm, uint8_t op)
+void op_binary_number (VM *vm, uint8_t op)
 {
-  Value v2 = VMpop (vm);
-  Value v1 = VMpop (vm);
+  Value v2 = vm_pop (vm);
+  Value v1 = vm_pop (vm);
   if (v1.Type != VT_NUM || v2.Type != VT_NUM)
   {
-    vmerror (vm, "type error: need number type");
+    vm_error (vm, "type error: need number type");
     return;
   }
 
@@ -152,54 +152,54 @@ void opBinaryNumber (VM *vm, uint8_t op)
     // number op
     case OP_ADD:
       n = n1 + n2;
-      goto pushNumber;
+      goto push_number;
     case OP_MINUS:
       n = n1 - n2;
-      goto pushNumber;
+      goto push_number;
     case OP_MUL:
       n = n1 * n2;
-      goto pushNumber;
+      goto push_number;
     case OP_DIV:
       n = n1 / n2;
-      goto pushNumber;
+      goto push_number;
 
     // logic op
     case OP_BANG_EQUAL:
       comp = n1 != n2;
-      goto pushBoolean;
+      goto push_boolean;
     case OP_EQUAL_EQUAL:
       comp = n1 == n2;
-      goto pushBoolean;
+      goto push_boolean;
     case OP_GREATER:
       comp = n1 > n2;
-      goto pushBoolean;
+      goto push_boolean;
     case OP_GREATER_EQUAL:
       comp = n1 >= n2;
-      goto pushBoolean;
+      goto push_boolean;
     case OP_LESS:
       comp = n1 < n2;
-      goto pushBoolean;
+      goto push_boolean;
     case OP_LESS_EQUAL:
       comp = n1 <= n2;
-      goto pushBoolean;
+      goto push_boolean;
   }
 
-pushNumber:
-  VMpush (vm, NewNumValue (n));
+push_number:
+  vm_push (vm, value_make_number (n));
   return;
 
-pushBoolean:
-  VMpush (vm, NewBoolValue (comp));
+push_boolean:
+  vm_push (vm, value_make_bool (comp));
   return;
 }
 
-void opBinaryBool (VM *vm, uint8_t op)
+void op_binary_bool (VM *vm, uint8_t op)
 {
-  Value v2 = VMpop (vm);
-  Value v1 = VMpop (vm);
+  Value v2 = vm_pop (vm);
+  Value v1 = vm_pop (vm);
   if (v1.Type != VT_BOOL || v2.Type != VT_BOOL)
   {
-    vmerror (vm, "type error: need bool type");
+    vm_error (vm, "type error: need bool type");
     return;
   }
 
@@ -216,5 +216,5 @@ void opBinaryBool (VM *vm, uint8_t op)
       break;
   }
 
-  VMpush (vm, NewBoolValue (b));
+  vm_push (vm, value_make_bool (b));
 }

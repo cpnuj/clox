@@ -12,13 +12,13 @@ VM vm;
 
 void interprete (char *src)
 {
-  initVM (&vm);
-  Compile (src, &vm.chunk);
-  // disassembleChunk(&vm.chunk, "hello kitty");
-  VMrun (&vm);
+  vm_init (&vm);
+  compile (src, &vm.chunk);
+  // debug_chunk(&vm.chunk, "hello kitty");
+  vm_run (&vm);
   if (!vm.error)
   {
-    printValue (VMpop (&vm));
+    value_print (vm_pop (&vm));
     printf ("\n");
   }
 }

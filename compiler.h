@@ -11,7 +11,7 @@ typedef struct {
     Chunk *chunk;   // Compiling chunk
 } Parser;
 
-void Compile(char *src, Chunk *chunk);
+void compile(char *src, Chunk *chunk);
 
 #endif
 

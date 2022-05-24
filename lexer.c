@@ -1,48 +1,47 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "lexer.h"
 
-void lexerSkipWhitespace (Lexer *l);
-int lexerEnd (Lexer *l);
-char lexerPeek (Lexer *l);
-char lexerPeekNext (Lexer *l);
-char lexerForward (Lexer *l);
-int lexerMatch (Lexer *l, char c);
-void lexerSetError (Lexer *l, char *errmsg);
+void lexer_skip_whitespace (Lexer *l);
+int lexer_end (Lexer *l);
+char lexer_peek (Lexer *l);
+char lexer_peeknext (Lexer *l);
+char lexer_forward (Lexer *l);
+int lexer_match (Lexer *l, char c);
+void lexer_error (Lexer *l, char *errmsg);
 
-int isDigit (char c);
-int isLetter (char c);
-int isKeyword (char *s, int len);
+int iskeyword (char *s, int len);
 
-Token makeToken (Lexer *l, TokenType type);
+Token mktoken (Lexer *l, TokenType type);
 
-TokenType lexNumber (Lexer *l);
-TokenType lexIdent (Lexer *l);
-TokenType lexString (Lexer *l);
+TokenType lex_number (Lexer *l);
+TokenType lex_ident (Lexer *l);
+TokenType lex_string (Lexer *l);
 
-void lexerSkipWhitespace (Lexer *l)
+void lexer_skip_whitespace (Lexer *l)
 {
   for (;;)
   {
-    char c = lexerPeek (l);
+    char c = lexer_peek (l);
     switch (c)
     {
       case ' ':
       case '\r':
       case '\t':
-        lexerForward (l);
+        lexer_forward (l);
         break;
       // new line
       case '\n':
         l->line++;
-        lexerForward (l);
+        lexer_forward (l);
         break;
       // comment
       case '/':
-        if (lexerPeekNext (l) == '/')
+        if (lexer_peeknext (l) == '/')
         {
-          while (!lexerEnd (l) && lexerForward (l) != '\n')
+          while (!lexer_end (l) && lexer_forward (l) != '\n')
           {
           }
           return;
@@ -53,18 +52,18 @@ void lexerSkipWhitespace (Lexer *l)
   }
 }
 
-int lexerEnd (Lexer *l) { return l->end >= l->len; }
+int lexer_end (Lexer *l) { return l->end >= l->len; }
 
-char lexerPeek (Lexer *l) { return lexerEnd (l) ? 0 : l->src[l->end]; }
+char lexer_peek (Lexer *l) { return lexer_end (l) ? 0 : l->src[l->end]; }
 
-char lexerPeekNext (Lexer *l)
+char lexer_peeknext (Lexer *l)
 {
   return (l->end + 1 >= l->len) ? 0 : l->src[l->end + 1];
 }
 
-char lexerForward (Lexer *l)
+char lexer_forward (Lexer *l)
 {
-  if (lexerEnd (l))
+  if (lexer_end (l))
   {
     return 0;
   }
@@ -73,32 +72,25 @@ char lexerForward (Lexer *l)
   return ret;
 }
 
-int lexerMatch (Lexer *l, char c)
+int lexer_match (Lexer *l, char c)
 {
-  if (lexerPeek (l) == c)
+  if (lexer_peek (l) == c)
   {
-    lexerForward (l);
+    lexer_forward (l);
     return 1;
   }
   return 0;
 }
 
-void lexerSetError (Lexer *l, char *errmsg)
+void lexer_error (Lexer *l, char *errmsg)
 {
   l->err = 1;
   l->errmsg = errmsg;
 }
 
-int isDigit (char c) { return c >= '0' && c <= '9'; }
+int iskeyword (char *s, int len) { return CloxKeyword (s, len); }
 
-int isLetter (char c)
-{
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_');
-}
-
-int isKeyword (char *s, int len) { return CloxKeyword (s, len); }
-
-Token makeToken (Lexer *l, TokenType type)
+Token mktoken (Lexer *l, TokenType type)
 {
   Token tk = {
     .type = type,
@@ -109,25 +101,25 @@ Token makeToken (Lexer *l, TokenType type)
   return tk;
 }
 
-TokenType lexNumber (Lexer *l)
+TokenType lex_number (Lexer *l)
 {
   int hasDot = 0;
   for (;;)
   {
-    char peek = lexerPeek (l);
-    if (isDigit (peek))
+    char peek = lexer_peek (l);
+    if (isdigit (peek))
     {
-      lexerForward (l);
+      lexer_forward (l);
     }
     else if (peek == '.')
     {
       if (hasDot)
       {
-        lexerSetError (l, "expect digit");
+        lexer_error (l, "expect digit");
         return TK_ERR;
       }
       hasDot = 1;
-      lexerForward (l);
+      lexer_forward (l);
     }
     else
     {
@@ -136,15 +128,15 @@ TokenType lexNumber (Lexer *l)
   }
 }
 
-TokenType lexIdent (Lexer *l)
+TokenType lex_ident (Lexer *l)
 {
-  char c = lexerPeek (l);
-  while (isDigit (c) || isLetter (c))
+  char c = lexer_peek (l);
+  while (isdigit (c) || isalpha (c))
   {
-    lexerForward (l);
-    c = lexerPeek (l);
+    lexer_forward (l);
+    c = lexer_peek (l);
   }
-  int tk = isKeyword (l->src + l->start, l->end - l->start);
+  int tk = iskeyword (l->src + l->start, l->end - l->start);
   if (tk > 0)
   {
     return tk;
@@ -152,27 +144,27 @@ TokenType lexIdent (Lexer *l)
   return TK_IDENT;
 }
 
-TokenType lexString (Lexer *l)
+TokenType lex_string (Lexer *l)
 {
-  while (lexerForward (l) != '"')
+  while (lexer_forward (l) != '"')
   {
-    if (lexerEnd (l))
+    if (lexer_end (l))
     {
-      lexerSetError (l, "unclosed \" for string literal");
+      lexer_error (l, "unclosed \" for string literal");
       return TK_ERR;
     }
   }
   return TK_STRING;
 }
 
-Lexer *LexNew (char *src, int len)
+Lexer *lex_new (char *src, int len)
 {
   Lexer *l = (Lexer *)malloc (sizeof (Lexer));
-  LexInit (l, src, len);
+  lex_init (l, src, len);
   return l;
 }
 
-void LexInit (Lexer *l, char *src, int len)
+void lex_init (Lexer *l, char *src, int len)
 {
   l->start = 0;
   l->end = 0;
@@ -182,72 +174,72 @@ void LexInit (Lexer *l, char *src, int len)
   l->err = 0;
 }
 
-Token Lex (Lexer *l)
+Token lex (Lexer *l)
 {
   if (l->err)
-    return makeToken (l, TK_ERR);
+    return mktoken (l, TK_ERR);
 
-  lexerSkipWhitespace (l);
-  if (lexerEnd (l))
-    return makeToken (l, TK_EOF);
+  lexer_skip_whitespace (l);
+  if (lexer_end (l))
+    return mktoken (l, TK_EOF);
 
   l->start = l->end;
 
-  char c = lexerForward (l);
+  char c = lexer_forward (l);
   // notation
   switch (c)
   {
     // Single-character tokens.
     case '(':
-      return makeToken (l, TK_LEFT_PAREN);
+      return mktoken (l, TK_LEFT_PAREN);
     case ')':
-      return makeToken (l, TK_RIGHT_PAREN);
+      return mktoken (l, TK_RIGHT_PAREN);
     case '{':
-      return makeToken (l, TK_LEFT_BRACE);
+      return mktoken (l, TK_LEFT_BRACE);
     case '}':
-      return makeToken (l, TK_RIGHT_BRACE);
+      return mktoken (l, TK_RIGHT_BRACE);
     case ',':
-      return makeToken (l, TK_COMMA);
+      return mktoken (l, TK_COMMA);
     case '.':
-      return makeToken (l, TK_DOT);
+      return mktoken (l, TK_DOT);
     case '-':
-      return makeToken (l, TK_MINUS);
+      return mktoken (l, TK_MINUS);
     case '+':
-      return makeToken (l, TK_PLUS);
+      return mktoken (l, TK_PLUS);
     case ';':
-      return makeToken (l, TK_SEMICOLON);
+      return mktoken (l, TK_SEMICOLON);
     case '/':
-      return makeToken (l, TK_SLASH);
+      return mktoken (l, TK_SLASH);
     case '*':
-      return makeToken (l, TK_STAR);
+      return mktoken (l, TK_STAR);
 
     // Single-character tokens.
     case '!':
-      return makeToken (l, lexerMatch (l, '=') ? TK_BANG_EQUAL : TK_BANG);
+      return mktoken (l, lexer_match (l, '=') ? TK_BANG_EQUAL : TK_BANG);
     case '=':
-      return makeToken (l, lexerMatch (l, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+      return mktoken (l, lexer_match (l, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
     case '>':
-      return makeToken (l,
-                        lexerMatch (l, '=') ? TK_GREATER_EQUAL : TK_GREATER);
+      return mktoken (l,
+                        lexer_match (l, '=') ? TK_GREATER_EQUAL : TK_GREATER);
     case '<':
-      return makeToken (l, lexerMatch (l, '=') ? TK_LESS_EQUAL : TK_LESS);
+      return mktoken (l, lexer_match (l, '=') ? TK_LESS_EQUAL : TK_LESS);
   }
 
   // string
   if (c == '"')
-    return makeToken (l, lexString (l));
+    return mktoken (l, lex_string (l));
   // number
-  if (isDigit (c))
-    return makeToken (l, lexNumber (l));
+  if (isdigit (c))
+    return mktoken (l, lex_number (l));
   // identifier
-  if (isLetter (c))
-    return makeToken (l, lexIdent (l));
+  if (isalpha (c))
+    return mktoken (l, lex_ident (l));
   // error
-  lexerSetError (l, "lex error");
-  return makeToken (l, TK_ERR);
+  lexer_error (l, "lex error");
+  return mktoken (l, TK_ERR);
 }
 
-char *LexError (Lexer *l)
+char *lex_error (Lexer *l)
 {
   if (l->err)
   {
@@ -256,16 +248,16 @@ char *LexError (Lexer *l)
   return 0;
 }
 
-TokenType TokenGetType (Token *token) { return token->type; }
+TokenType token_type (Token *token) { return token->type; }
 
-int TokenGetLine (Token *token) { return token->line; }
+int token_line (Token *token) { return token->line; }
 
-char *TokenGetLexem (Token *token, char *dest)
+char *token_lexem (Token *token, char *dest)
 {
   sprintf (dest, "%.*s", token->len, token->at);
   return dest;
 }
 
-char *TokenGetLexemStart (Token *token) { return token->at; }
+char *token_lexem_start (Token *token) { return token->at; }
 
-int TokenGetLexemLen (Token *token) { return token->len; }
+int token_lexem_len (Token *token) { return token->len; }

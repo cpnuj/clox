@@ -36,11 +36,11 @@ typedef struct {
     ValueArray constants;
 } Chunk;
 
-void initChunk(Chunk* chunk);
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
-void freeChunk(Chunk* chunk);
+void chunk_init(Chunk* chunk);
+void chunk_write(Chunk* chunk, uint8_t byte, int line);
+void chunk_free(Chunk* chunk);
 
-int addConstant(Chunk* chunk, Value value);
+int chunk_add_constant(Chunk* chunk, Value value);
 
 #endif
 
