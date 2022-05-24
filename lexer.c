@@ -219,8 +219,7 @@ Token lex (Lexer *l)
     case '=':
       return mktoken (l, lexer_match (l, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
     case '>':
-      return mktoken (l,
-                        lexer_match (l, '=') ? TK_GREATER_EQUAL : TK_GREATER);
+      return mktoken (l, lexer_match (l, '=') ? TK_GREATER_EQUAL : TK_GREATER);
     case '<':
       return mktoken (l, lexer_match (l, '=') ? TK_LESS_EQUAL : TK_LESS);
   }
