@@ -20,6 +20,22 @@ Value value_make_number (double number)
   return value;
 }
 
+Value value_make_object (OBJ *obj)
+{
+  Value value;
+  value.Type = VT_OBJ;
+  value.as.obj = obj;
+  return value;
+}
+
+Value value_make_string (char *str, int len)
+{
+  Value value;
+  value.Type = VT_OBJ;
+  value.as.obj = string_copy (str, len);
+  return value;
+}
+
 void value_array_init (ValueArray *va)
 {
   va->len = 0;
@@ -53,10 +69,10 @@ void value_print (Value v)
       printf ("nil");
       break;
     case VT_NUM:
-      printf ("%g", VALUE_AS_NUMBER (v));
+      printf ("%g", value_as_number (v));
       break;
     case VT_BOOL:
-      if (VALUE_AS_BOOL (v) == true)
+      if (value_as_bool (v) == true)
       {
         printf ("true");
       }
@@ -65,5 +81,7 @@ void value_print (Value v)
         printf ("false");
       }
       break;
+    case VT_OBJ:
+      object_print (value_as_obj (v));
   }
 }

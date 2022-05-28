@@ -149,6 +149,7 @@ nudFn token_nud (Token token)
     case TK_TRUE:
     case TK_FALSE:
     case TK_NUMBER:
+    case TK_STRING:
       return parse_literal;
   }
   return 0;
@@ -214,6 +215,10 @@ void parse_literal (Parser *p)
     case TK_NUMBER:
       number = strtod (token_lexem_start (&token), NULL);
       v = value_make_number (number);
+      break;
+    case TK_STRING:
+      v = value_make_string (token_lexem_start (&token) + 1,
+                             token_lexem_len (&token) - 2);
       break;
     case TK_TRUE:
       v = value_make_bool (true);

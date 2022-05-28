@@ -10,8 +10,7 @@ void run_instruction (VM *vm, uint8_t i);
 
 void op_constant (VM *vm);
 void op_negative (VM *vm);
-void op_binary_number (VM *vm, uint8_t op);
-void op_binary_bool (VM *vm, uint8_t op);
+void op_binary (VM *vm, uint8_t op);
 
 void vm_init (VM *vm)
 {
@@ -104,11 +103,9 @@ void run_instruction (VM *vm, uint8_t i)
     case OP_GREATER_EQUAL:
     case OP_LESS:
     case OP_LESS_EQUAL:
-      return op_binary_number (vm, i);
-
     case OP_AND:
     case OP_OR:
-      return op_binary_bool (vm, i);
+      return op_binary (vm, i);
   }
   // TODO: panic on unknown code
   vm_error (vm, "unknown code");
@@ -128,93 +125,110 @@ void op_negative (VM *vm)
     vm_error (vm, "type error: need number type");
     return;
   }
-  double number = VALUE_AS_NUMBER (value);
+  double number = value_as_number (value);
   vm_push (vm, value_make_number (-number));
 }
 
-void op_binary_number (VM *vm, uint8_t op)
+Value concatenate (Value v1, Value v2)
 {
-  Value v2 = vm_pop (vm);
-  Value v1 = vm_pop (vm);
-  if (v1.Type != VT_NUM || v2.Type != VT_NUM)
-  {
-    vm_error (vm, "type error: need number type");
-    return;
-  }
-
-  double n1 = VALUE_AS_NUMBER (v1);
-  double n2 = VALUE_AS_NUMBER (v2);
-
-  double n;
-  bool comp;
-  switch (op)
-  {
-    // number op
-    case OP_ADD:
-      n = n1 + n2;
-      goto push_number;
-    case OP_MINUS:
-      n = n1 - n2;
-      goto push_number;
-    case OP_MUL:
-      n = n1 * n2;
-      goto push_number;
-    case OP_DIV:
-      n = n1 / n2;
-      goto push_number;
-
-    // logic op
-    case OP_BANG_EQUAL:
-      comp = n1 != n2;
-      goto push_boolean;
-    case OP_EQUAL_EQUAL:
-      comp = n1 == n2;
-      goto push_boolean;
-    case OP_GREATER:
-      comp = n1 > n2;
-      goto push_boolean;
-    case OP_GREATER_EQUAL:
-      comp = n1 >= n2;
-      goto push_boolean;
-    case OP_LESS:
-      comp = n1 < n2;
-      goto push_boolean;
-    case OP_LESS_EQUAL:
-      comp = n1 <= n2;
-      goto push_boolean;
-  }
-
-push_number:
-  vm_push (vm, value_make_number (n));
-  return;
-
-push_boolean:
-  vm_push (vm, value_make_bool (comp));
-  return;
+  struct obj_string *s1, *s2;
+  s1 = value_as_string (v1);
+  s2 = value_as_string (v2);
+  return value_make_object (string_concat (s1, s2));
 }
 
-void op_binary_bool (VM *vm, uint8_t op)
+void op_binary (VM *vm, uint8_t op)
 {
   Value v2 = vm_pop (vm);
   Value v1 = vm_pop (vm);
-  if (v1.Type != VT_BOOL || v2.Type != VT_BOOL)
-  {
-    vm_error (vm, "type error: need bool type");
-    return;
-  }
 
-  bool b;
-  bool b1 = VALUE_AS_BOOL (v1);
-  bool b2 = VALUE_AS_BOOL (v2);
+  Value v;
+  int error = 0;
+
+#define op_calculation(op)                                                    \
+  if (is_number (v1) && is_number (v2))                                       \
+    v = value_make_number (value_as_number (v1) op value_as_number (v2));     \
+  else                                                                        \
+    error = 1;
+
+#define op_comparison(op)                                                     \
+  if (is_number (v1) && is_number (v2))                                       \
+    v = value_make_bool (value_as_number (v1) op value_as_number (v2));       \
+  else                                                                        \
+    error = 1;
+
+#define op_logic(op)                                                          \
+  if (is_bool (v1) && is_bool (v2))                                           \
+    v = value_make_bool (value_as_bool (v1) op value_as_bool (v2));           \
+  else                                                                        \
+    error = 1;
+
   switch (op)
   {
-    case OP_AND:
-      b = b1 && b2;
+    // calculation
+    case OP_ADD:
+      if (is_number (v1) && is_number (v2))
+        v = value_make_number (value_as_number (v1) + value_as_number (v2));
+      else if (is_string (v1) && is_string (v2))
+        v = concatenate (v1, v2);
+      else
+        error = 1;
       break;
+
+    case OP_MINUS:
+      op_calculation (-);
+      break;
+
+    case OP_MUL:
+      op_calculation (*);
+      break;
+
+    case OP_DIV:
+      op_calculation (/);
+      break;
+
+    // comparision
+    case OP_BANG_EQUAL:
+      op_comparison (!=);
+      break;
+
+    case OP_EQUAL_EQUAL:
+      op_comparison (==);
+      break;
+
+    case OP_GREATER:
+      op_comparison (>);
+      break;
+
+    case OP_GREATER_EQUAL:
+      op_comparison (>=);
+      break;
+
+    case OP_LESS:
+      op_comparison (<);
+      break;
+
+    case OP_LESS_EQUAL:
+      op_comparison (<=);
+      break;
+
+    // logic
+    case OP_AND:
+      op_logic (&&);
+      break;
+
     case OP_OR:
-      b = b1 || b2;
+      op_logic (||);
       break;
   }
 
-  vm_push (vm, value_make_bool (b));
+  if (error)
+    // TODO: make error msg clear
+    vm_error (vm, "type error");
+  else
+    vm_push (vm, v);
+
+#undef BINARY_OP_CAL
+#undef BINARY_OP_COMP
+#undef BINARY_OP_LOGIC
 }
