@@ -4,17 +4,35 @@
 #include "memory.h"
 #include "object.h"
 
-void object_init (OBJ *obj, int type) { obj->type = type; }
+void object_init (OBJ *obj, int type, uint32_t hash)
+{
+  obj->type = type;
+  obj->hash = hash;
+}
+
+// FNV-1a hash function
+static uint32_t string_hash (const char* key, int length)
+{
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++)
+  {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
 
 OBJ *string_copy (char *src, int len)
 {
   struct obj_string *obj;
+  uint32_t hash;
 
   // We need one more byte for trailing \0
   size_t size = sizeof (*obj) + len + 1;
   obj = (struct obj_string *)reallocate (NULL, 0, size);
+  hash = string_hash (src, len);
 
-  object_init ((OBJ *)obj, OBJ_STRING);
+  object_init ((OBJ *)obj, OBJ_STRING, hash);
 
   memcpy (obj->raw, src, len);
   obj->raw[len] = '\0';
@@ -27,10 +45,12 @@ OBJ *string_copy (char *src, int len)
 OBJ *string_take (char *src, int len)
 {
   struct obj_string *obj;
+  uint32_t hash;
 
   obj = (struct obj_string *)reallocate (NULL, 0, sizeof (struct obj_string));
+  hash = string_hash (src, len);
 
-  object_init ((OBJ *)obj, OBJ_STRING);
+  object_init ((OBJ *)obj, OBJ_STRING, hash);
 
   obj->len = len;
   obj->str = src;

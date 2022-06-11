@@ -1,6 +1,8 @@
 #ifndef clox_object_h
 #define clox_object_h
 
+#include <stdint.h>
+
 enum
 {
   OBJ_STRING = 1,
@@ -9,9 +11,10 @@ enum
 typedef struct _obj
 {
   int type;
+  uint32_t hash;
 } OBJ;
 
-void object_init (OBJ *, int);
+void object_init (OBJ *obj, int type, uint32_t hash);
 
 #define object_is(obj, t) (obj->type == t)
 #define object_as(obj, t) ((t *)obj)
