@@ -8,39 +8,36 @@
 #include "lexer.h"
 #include "vm.h"
 
-VM vm;
+struct vm vm;
 
-void interprete (char *src)
+void interprete(char *src)
 {
-  vm_init (&vm);
-  compile (src, &vm.chunk);
+  vm_init(&vm);
+  compile(src, &vm.chunk);
   // debug_chunk(&vm.chunk, "hello kitty");
-  vm_run (&vm);
-  if (!vm.error)
-  {
-    value_print (vm_pop (&vm));
-    printf ("\n");
+  vm_run(&vm);
+  if (!vm.error) {
+    value_print(vm_pop(&vm));
+    printf("\n");
   }
 }
 
-static void repl ()
+static void repl()
 {
   char line[1024];
-  Lexer l;
-  for (;;)
-  {
-    printf ("> ");
-    if (!fgets (line, sizeof (line), stdin))
-    {
-      printf ("\n");
+  struct lexer l;
+  for (;;) {
+    printf("> ");
+    if (!fgets(line, sizeof(line), stdin)) {
+      printf("\n");
       break;
     }
-    interprete (line);
+    interprete(line);
   }
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  repl ();
+  repl();
   return 0;
 }

@@ -3,18 +3,16 @@
 
 #include <stdint.h>
 
-enum
-{
+enum {
   OBJ_STRING = 1,
 };
 
-typedef struct _obj
-{
+struct object {
   int type;
   uint32_t hash;
-} OBJ;
+};
 
-void object_init (OBJ *obj, int type, uint32_t hash);
+void object_init(struct object *obj, int type, uint32_t hash);
 
 #define object_is(obj, t) (obj->type == t)
 #define object_as(obj, t) ((t *)obj)
@@ -22,19 +20,18 @@ void object_init (OBJ *obj, int type, uint32_t hash);
 // struct obj_string represents a string object in clox.
 // If the raw string is embeded within this struct, pointer str points to filed
 // raw, else str may point to other space specified by user.
-struct obj_string
-{
-  OBJ base;
+struct obj_string {
+  struct object base;
   int len;
   char *str;
   char raw[];
 };
 
-OBJ *string_copy (char *, int);
-OBJ *string_take (char *, int);
+struct object *string_copy(char *, int);
+struct object *string_take(char *, int);
 
-OBJ *string_concat (struct obj_string *, struct obj_string *);
+struct object *string_concat(struct obj_string *, struct obj_string *);
 
-void object_print (OBJ *);
+void object_print(struct object *);
 
 #endif

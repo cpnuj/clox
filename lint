@@ -1,0 +1,3 @@
+#!/bin/bash -ex
+
+find ./ | rg '\.(c|h)$' | xargs clang-format -i

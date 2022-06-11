@@ -3,7 +3,7 @@
 
 #include "keyword.h" // include keyword.h to include keyword tokens
 
-typedef int TokenType;
+typedef int token_t;
 
 #define TK_ERR -1
 #define TK_EOF 0
@@ -35,8 +35,7 @@ typedef int TokenType;
 #define TK_LESS 21
 #define TK_LESS_EQUAL 22
 
-typedef struct
-{
+struct lexer {
   int start;
   int end;
   int line; // current line
@@ -45,25 +44,24 @@ typedef struct
 
   int err;
   char *errmsg;
-} Lexer;
+};
 
-typedef struct
-{
-  TokenType type;
+struct token {
+  token_t type;
   int line;
   char *at; // the lexem begins at source
   int len;  // the lexem's len
-} Token;
+};
 
-Lexer *lex_new (char *src, int len);
-void lex_init (Lexer *l, char *src, int len);
-Token lex (Lexer *l);
-char *lex_error (Lexer *l);
+struct lexer *lex_new(char *src, int len);
+void lex_init(struct lexer *l, char *src, int len);
+struct token lex(struct lexer *l);
+char *lex_error(struct lexer *l);
 
-TokenType token_type (Token *token);
-int token_line (Token *token);
-char *token_lexem (Token *token, char *dst);
-char *token_lexem_start (Token *token);
-int token_lexem_len (Token *token);
+token_t token_type(struct token *token);
+int token_line(struct token *token);
+char *token_lexem(struct token *token, char *dst);
+char *token_lexem_start(struct token *token);
+int token_lexem_len(struct token *token);
 
 #endif

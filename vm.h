@@ -6,21 +6,20 @@
 
 #define STACK_MAX 256
 
-typedef struct
-{
-  int pc;    // Program counter
-  Value *sp; // Stack pointer
+struct vm {
+  int pc;           // Program counter
+  struct value *sp; // Stack pointer
 
-  Chunk chunk;
-  Value stack[STACK_MAX];
+  struct chunk chunk;
+  struct value stack[STACK_MAX];
 
   int error;
   char *errmsg;
-} VM;
+};
 
-void vm_init (VM *vm);
-void vm_run (VM *vm);
-void vm_push (VM *vm, Value v);
-Value vm_pop (VM *vm);
+void vm_init(struct vm *vm);
+void vm_run(struct vm *vm);
+void vm_push(struct vm *vm, struct value v);
+struct value vm_pop(struct vm *vm);
 
 #endif

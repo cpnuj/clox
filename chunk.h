@@ -7,8 +7,7 @@
 
 #include "value.h"
 
-typedef enum
-{
+typedef enum {
   OP_NONE,
   OP_RETURN,
   OP_CONSTANT,
@@ -27,25 +26,24 @@ typedef enum
   OP_LESS_EQUAL,
   OP_AND,
   OP_OR,
-} OpCode;
+} op_code;
 
-typedef struct
-{
+struct chunk {
   int len;
   int cap;
   int *lines;
   uint8_t *code;
-  ValueArray constants;
-} Chunk;
+  struct value_list constants;
+};
 
 #define constant_nil 0
 #define constant_false 1
 #define constant_true 2
 
-void chunk_init (Chunk *chunk);
-void chunk_write (Chunk *chunk, uint8_t byte, int line);
-void chunk_free (Chunk *chunk);
+void chunk_init(struct chunk *chunk);
+void chunk_write(struct chunk *chunk, uint8_t byte, int line);
+void chunk_free(struct chunk *chunk);
 
-int chunk_add_constant (Chunk *chunk, Value value);
+int chunk_add_constant(struct chunk *chunk, struct value value);
 
 #endif

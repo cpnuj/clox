@@ -4,14 +4,13 @@
 #include "chunk.h"
 #include "lexer.h"
 
-typedef struct
-{
-  Lexer lexer;
-  Token curr;
-  Token prev;
-  Chunk *chunk; // Compiling chunk
-} Compiler;
+struct compiler {
+  struct lexer lexer;
+  struct token curr;
+  struct token prev;
+  struct chunk *chunk; // Compiling chunk
+};
 
-void compile (char *src, Chunk *chunk);
+void compile(char *src, struct chunk *chunk);
 
 #endif

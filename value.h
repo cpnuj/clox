@@ -5,24 +5,21 @@
 
 #include "object.h"
 
-typedef enum
-{
+typedef enum {
   VT_NIL,
   VT_NUM,
   VT_BOOL,
   VT_OBJ,
-} ValueType;
+} value_t;
 
-typedef struct
-{
-  ValueType Type;
-  union
-  {
+struct value {
+  value_t Type;
+  union {
     bool boolean;
     double number;
-    OBJ *obj;
+    struct object *obj;
   } as;
-} Value;
+};
 
 #define value_as_bool(value) (value.as.boolean)
 #define value_as_number(value) (value.as.number)
@@ -33,31 +30,30 @@ typedef struct
 #define is_bool(value) (value.Type == VT_BOOL)
 #define is_object(value) (value.Type == VT_OBJ)
 
-#define is_string(value)                                                      \
-  (is_object (value) && object_is (value_as_obj (value), OBJ_STRING))
+#define is_string(value)                                                       \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
 
 // Macros cast value to specific object
-#define value_as_string(value)                                                \
-  (object_as (value_as_obj (value), struct obj_string))
+#define value_as_string(value)                                                 \
+  (object_as(value_as_obj(value), struct obj_string))
 
-Value value_make_nil (void);
-Value value_make_bool (bool);
-Value value_make_number (double);
-Value value_make_object (OBJ *);
+struct value value_make_nil(void);
+struct value value_make_bool(bool);
+struct value value_make_number(double);
+struct value value_make_object(struct object *);
 
-Value value_make_string (char *str, int len);
+struct value value_make_string(char *str, int len);
 
-typedef struct
-{
+struct value_list {
   int len;
   int cap;
-  Value *value;
-} ValueArray;
+  struct value *value;
+};
 
-void value_array_init (ValueArray *va);
-void value_array_write (ValueArray *va, Value v);
-void value_array_free (ValueArray *va);
+void value_array_init(struct value_list *va);
+void value_array_write(struct value_list *va, struct value v);
+void value_array_free(struct value_list *va);
 
-void value_print (Value v);
+void value_print(struct value v);
 
 #endif
