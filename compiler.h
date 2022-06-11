@@ -10,7 +10,7 @@ typedef struct
   Token curr;
   Token prev;
   Chunk *chunk; // Compiling chunk
-} Parser;
+} Compiler;
 
 void compile (char *src, Chunk *chunk);
 
