@@ -4,6 +4,13 @@
 #include "memory.h"
 #include "value.h"
 
+Value value_make_nil ()
+{
+  Value value;
+  value.Type = VT_NIL;
+  return value;
+}
+
 Value value_make_bool (bool boolean)
 {
   Value value;

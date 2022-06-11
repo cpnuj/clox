@@ -28,6 +28,7 @@ typedef struct
 #define value_as_number(value) (value.as.number)
 #define value_as_obj(value) (value.as.obj)
 
+#define is_nil(value) (value.Type == VT_NIL)
 #define is_number(value) (value.Type == VT_NUM)
 #define is_bool(value) (value.Type == VT_BOOL)
 #define is_object(value) (value.Type == VT_OBJ)
@@ -39,6 +40,7 @@ typedef struct
 #define value_as_string(value)                                                \
   (object_as (value_as_obj (value), struct obj_string))
 
+Value value_make_nil (void);
 Value value_make_bool (bool);
 Value value_make_number (double);
 Value value_make_object (OBJ *);

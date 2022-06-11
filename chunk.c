@@ -8,6 +8,11 @@ void chunk_init (Chunk *chunk)
   chunk->code = NULL;
   chunk->lines = NULL;
   value_array_init (&chunk->constants);
+
+  // Make sure the order of initial constants sync with constant_* macros.
+  chunk_add_constant (chunk, value_make_nil ());
+  chunk_add_constant (chunk, value_make_bool (false));
+  chunk_add_constant (chunk, value_make_bool (true));
 }
 
 void chunk_write (Chunk *chunk, uint8_t byte, int line)

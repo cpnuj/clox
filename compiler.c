@@ -64,6 +64,8 @@ static void emit_constant (Parser *parser, Value value)
 {
   // TODO: Do not make new constant to value array for bool and nil
   // to reduce memory usage.
+  // We have initialized constant for bool and nil now, but need parser
+  // error handling.
   emit_bytes (parser, OP_CONSTANT, make_constant (parser->chunk, value));
 }
 
@@ -207,29 +209,36 @@ bindingPower token_bp (Token token)
 void parse_literal (Parser *p)
 {
   Value v;
-  double number;
 
   Token token = parser_prev (p);
   switch (token_type (&token))
   {
+    // nil and bool values are already stored in chunk's constant array
+    case TK_NIL:
+      emit_bytes (p, OP_CONSTANT, constant_nil);
+      return;
+    case TK_FALSE:
+      emit_bytes (p, OP_CONSTANT, constant_false);
+      return;
+    case TK_TRUE:
+      emit_bytes (p, OP_CONSTANT, constant_true);
+      return;
+
+    // number and string literals are added to chunk's constant array at runtime
     case TK_NUMBER:
-      number = strtod (token_lexem_start (&token), NULL);
+    {
+      double number = strtod (token_lexem_start (&token), NULL);
       v = value_make_number (number);
       break;
+    }
     case TK_STRING:
+    {
       v = value_make_string (token_lexem_start (&token) + 1,
                              token_lexem_len (&token) - 2);
       break;
-    case TK_TRUE:
-      v = value_make_bool (true);
-      break;
-    case TK_FALSE:
-      v = value_make_bool (false);
-      break;
-    case TK_NIL:
-      // TODO
-      return;
+    }
   }
+
   emit_constant (p, v);
 }
 

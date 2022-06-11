@@ -38,6 +38,10 @@ typedef struct
   ValueArray constants;
 } Chunk;
 
+#define constant_nil   0
+#define constant_false 1
+#define constant_true  2
+
 void chunk_init (Chunk *chunk);
 void chunk_write (Chunk *chunk, uint8_t byte, int line);
 void chunk_free (Chunk *chunk);
