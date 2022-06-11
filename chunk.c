@@ -15,9 +15,9 @@ void chunk_write (Chunk *chunk, uint8_t byte, int line)
   if (chunk->cap < chunk->len + 1)
   {
     int oldSize = chunk->cap;
-    chunk->cap = GROW_CAP (chunk->cap);
-    chunk->code = GROW_ARRAY (uint8_t, chunk->code, oldSize, chunk->cap);
-    chunk->lines = GROW_ARRAY (int, chunk->lines, oldSize, chunk->cap);
+    chunk->cap = grow_cap (chunk->cap);
+    chunk->code = grow_array (uint8_t, chunk->code, oldSize, chunk->cap);
+    chunk->lines = grow_array (int, chunk->lines, oldSize, chunk->cap);
   }
   chunk->code[chunk->len] = byte;
   chunk->lines[chunk->len] = line;
@@ -27,7 +27,7 @@ void chunk_write (Chunk *chunk, uint8_t byte, int line)
 void chunk_free (Chunk *chunk)
 {
   value_array_free (&chunk->constants);
-  FREE_ARRAY (uint8_t, chunk->code, chunk->cap);
+  free_array (uint8_t, chunk->code, chunk->cap);
   chunk_init (chunk);
 }
 

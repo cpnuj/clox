@@ -48,8 +48,8 @@ void value_array_write (ValueArray *va, Value v)
   if (va->cap < va->len + 1)
   {
     int oldSize = va->cap;
-    va->cap = GROW_CAP (va->cap);
-    va->value = GROW_ARRAY (Value, va->value, oldSize, va->cap);
+    va->cap = grow_cap (va->cap);
+    va->value = grow_array (Value, va->value, oldSize, va->cap);
   }
   va->value[va->len] = v;
   va->len++;
@@ -57,7 +57,7 @@ void value_array_write (ValueArray *va, Value v)
 
 void value_array_free (ValueArray *va)
 {
-  FREE_ARRAY (Value, va->value, va->cap);
+  free_array (Value, va->value, va->cap);
   value_array_init (va);
 }
 
