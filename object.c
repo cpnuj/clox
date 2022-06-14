@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "debug.h"
 #include "memory.h"
 #include "object.h"
 
@@ -8,6 +9,19 @@ void object_init(struct object *obj, int type, uint32_t hash)
 {
   obj->type = type;
   obj->hash = hash;
+}
+
+bool object_equal(struct object *obj1, struct object *obj2)
+{
+  if (obj1->type != obj2->type)
+    return false;
+  switch (obj1->type) {
+  case OBJ_STRING:
+    return string_equal(object_as(obj1, struct obj_string),
+                        object_as(obj2, struct obj_string));
+  default:
+    panic("unknown object type")
+  }
 }
 
 // FNV-1a hash function
@@ -69,6 +83,13 @@ struct object *string_concat(struct obj_string *obj1, struct obj_string *obj2)
 
   obj = string_take(dst, len);
   return obj;
+}
+
+bool string_equal(struct obj_string *s1, struct obj_string *s2)
+{
+  if (s1 == s2)
+    return true;
+  return strcmp(s1->str, s2->str) == 0;
 }
 
 void object_print(struct object *obj)

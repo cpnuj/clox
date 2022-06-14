@@ -1,6 +1,7 @@
 #ifndef clox_object_h
 #define clox_object_h
 
+#include <stdbool.h>
 #include <stdint.h>
 
 enum {
@@ -13,6 +14,7 @@ struct object {
 };
 
 void object_init(struct object *obj, int type, uint32_t hash);
+bool object_equal(struct object *, struct object *);
 
 #define object_is(obj, t) (obj->type == t)
 #define object_as(obj, t) ((t *)obj)
@@ -31,6 +33,7 @@ struct object *string_copy(char *, int);
 struct object *string_take(char *, int);
 
 struct object *string_concat(struct obj_string *, struct obj_string *);
+bool string_equal(struct obj_string *, struct obj_string *);
 
 void object_print(struct object *);
 

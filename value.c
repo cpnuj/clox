@@ -1,20 +1,21 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "debug.h"
 #include "memory.h"
 #include "value.h"
 
 struct value value_make_nil()
 {
   struct value value;
-  value.Type = VT_NIL;
+  value.type = VT_NIL;
   return value;
 }
 
 struct value value_make_bool(bool boolean)
 {
   struct value value;
-  value.Type = VT_BOOL;
+  value.type = VT_BOOL;
   value.as.boolean = boolean;
   return value;
 }
@@ -22,7 +23,7 @@ struct value value_make_bool(bool boolean)
 struct value value_make_number(double number)
 {
   struct value value;
-  value.Type = VT_NUM;
+  value.type = VT_NUM;
   value.as.number = number;
   return value;
 }
@@ -30,7 +31,7 @@ struct value value_make_number(double number)
 struct value value_make_object(struct object *obj)
 {
   struct value value;
-  value.Type = VT_OBJ;
+  value.type = VT_OBJ;
   value.as.obj = obj;
   return value;
 }
@@ -38,7 +39,7 @@ struct value value_make_object(struct object *obj)
 struct value value_make_string(char *str, int len)
 {
   struct value value;
-  value.Type = VT_OBJ;
+  value.type = VT_OBJ;
   value.as.obj = string_copy(str, len);
   return value;
 }
@@ -67,9 +68,50 @@ void value_array_free(struct value_list *va)
   value_array_init(va);
 }
 
+struct value value_array_get(struct value_list *vlist, int idx)
+{
+  if (idx >= vlist->len || idx < 0)
+    panic("invalid reference index of value array");
+
+  return *(vlist->value + idx);
+}
+
+uint32_t value_hash(struct value value)
+{
+  if (is_nil(value)) {
+    return 0;
+  } else if (is_bool(value)) {
+    return (value_as_bool(value) == true) ? 1 : 0;
+  } else if (is_number(value)) {
+    panic("TODO");
+  } else if (is_object(value)) {
+    return value_as_obj(value)->hash;
+  }
+  panic("unknown type of value");
+}
+
+bool value_equal(struct value v1, struct value v2)
+{
+  if (v1.type != v2.type)
+    return false;
+  // v1 and v2 have same type now.
+  switch (v1.type) {
+  case VT_NIL:
+    return true;
+  case VT_BOOL:
+    return value_as_bool(v1) == value_as_bool(v2);
+  case VT_NUM:
+    return value_as_number(v1) == value_as_number(v2);
+  case VT_OBJ:
+    return object_equal(value_as_obj(v1), value_as_obj(v2));
+  default:
+    panic("unknown value type");
+  }
+}
+
 void value_print(struct value v)
 {
-  switch (v.Type) {
+  switch (v.type) {
   case VT_NIL:
     printf("nil");
     break;

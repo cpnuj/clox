@@ -112,7 +112,7 @@ void op_constant(struct vm *vm)
 void op_negative(struct vm *vm)
 {
   struct value value = vm_pop(vm);
-  if (value.Type != VT_NUM) {
+  if (value.type != VT_NUM) {
     vm_error(vm, "type error: need number type");
     return;
   }

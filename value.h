@@ -2,6 +2,7 @@
 #define clox_value_h
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "object.h"
 
@@ -13,7 +14,7 @@ typedef enum {
 } value_t;
 
 struct value {
-  value_t Type;
+  value_t type;
   union {
     bool boolean;
     double number;
@@ -25,10 +26,10 @@ struct value {
 #define value_as_number(value) (value.as.number)
 #define value_as_obj(value) (value.as.obj)
 
-#define is_nil(value) (value.Type == VT_NIL)
-#define is_number(value) (value.Type == VT_NUM)
-#define is_bool(value) (value.Type == VT_BOOL)
-#define is_object(value) (value.Type == VT_OBJ)
+#define is_nil(value) (value.type == VT_NIL)
+#define is_number(value) (value.type == VT_NUM)
+#define is_bool(value) (value.type == VT_BOOL)
+#define is_object(value) (value.type == VT_OBJ)
 
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
@@ -44,6 +45,10 @@ struct value value_make_object(struct object *);
 
 struct value value_make_string(char *str, int len);
 
+uint32_t value_hash(struct value);
+bool value_equal(struct value, struct value);
+void value_print(struct value v);
+
 struct value_list {
   int len;
   int cap;
@@ -53,7 +58,6 @@ struct value_list {
 void value_array_init(struct value_list *va);
 void value_array_write(struct value_list *va, struct value v);
 void value_array_free(struct value_list *va);
-
-void value_print(struct value v);
+struct value value_array_get(struct value_list *vlist, int idx);
 
 #endif

@@ -1,0 +1,7 @@
+#!/bin/bash -ex
+
+SRC=$(realpath ../../)
+TARGET=$1
+CFILES=$(find $SRC/*.c | grep -v 'main.c')
+
+gcc $TARGET.c $CFILES -I $SRC -o $TARGET
