@@ -11,6 +11,7 @@ typedef enum {
   VT_NUM,
   VT_BOOL,
   VT_OBJ,
+  VT_IDENT,
 } value_t;
 
 struct value {
@@ -30,6 +31,7 @@ struct value {
 #define is_number(value) (value.type == VT_NUM)
 #define is_bool(value) (value.type == VT_BOOL)
 #define is_object(value) (value.type == VT_OBJ)
+#define is_ident(value) (value.type == VT_IDENT)
 
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
@@ -42,6 +44,7 @@ struct value value_make_nil(void);
 struct value value_make_bool(bool);
 struct value value_make_number(double);
 struct value value_make_object(struct object *);
+struct value value_make_ident(char *, int);
 
 struct value value_make_string(char *str, int len);
 

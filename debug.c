@@ -34,6 +34,32 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_DIV", offset);
   case OP_NEGATIVE:
     return simple_instruction("OP_NEGATIVE", offset);
+  case OP_BANG:
+    return simple_instruction("OP_BANG", offset);
+  case OP_BANG_EQUAL:
+    return simple_instruction("OP_BANG_EQUAL", offset);
+  case OP_EQUAL:
+    return simple_instruction("OP_EQUAL", offset);
+  case OP_EQUAL_EQUAL:
+    return simple_instruction("OP_EQUAL_EQUAL", offset);
+  case OP_GREATER:
+    return simple_instruction("OP_GREATER", offset);
+  case OP_GREATER_EQUAL:
+    return simple_instruction("OP_GREATER_EQUAL", offset);
+  case OP_LESS:
+    return simple_instruction("OP_LESS", offset);
+  case OP_LESS_EQUAL:
+    return simple_instruction("OP_LESS_EQUAL", offset);
+  case OP_AND:
+    return simple_instruction("OP_AND", offset);
+  case OP_OR:
+    return simple_instruction("OP_OR", offset);
+  case OP_PRINT:
+    return simple_instruction("OP_PRINT", offset);
+  case OP_GLOBAL:
+    return simple_instruction("OP_GLOBAL", offset);
+  case OP_SET:
+    return simple_instruction("OP_SET", offset);
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;

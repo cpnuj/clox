@@ -1,9 +1,13 @@
 #include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include "debug.h"
+#include "map.h"
 #include "vm.h"
 
 void vm_error(struct vm *vm, char *errmsg);
+void vm_errorf(struct vm *vm, char *format, ...);
 
 uint8_t fetch_code(struct vm *vm);
 void run_instruction(struct vm *vm, uint8_t i);
@@ -11,6 +15,12 @@ void run_instruction(struct vm *vm, uint8_t i);
 void op_constant(struct vm *vm);
 void op_negative(struct vm *vm);
 void op_binary(struct vm *vm, uint8_t op);
+void op_global(struct vm *vm);
+void op_set(struct vm *vm);
+void op_print(struct vm *vm);
+
+static struct value resolve(struct vm *vm, struct value v);
+static struct map *globals(struct vm *vm);
 
 void vm_init(struct vm *vm)
 {
@@ -48,7 +58,8 @@ void vm_run(struct vm *vm)
       vm_error(vm, "struct vm error: pc out of bound");
     }
     if (vm->error) {
-      fprintf(stderr, "%s\n", vm->errmsg);
+      while (fetch_code(vm) != OP_RETURN)
+        ;
       return;
     }
     uint8_t instruction = fetch_code(vm);
@@ -62,7 +73,15 @@ void vm_run(struct vm *vm)
 void vm_error(struct vm *vm, char *errmsg)
 {
   vm->error = 1;
-  vm->errmsg = errmsg;
+  sprintf(vm->errmsg, "%s", errmsg);
+}
+
+void vm_errorf(struct vm *vm, char *format, ...)
+{
+  vm->error = 1;
+  va_list ap;
+  va_start(ap, format);
+  vsprintf(vm->errmsg, format, ap);
 }
 
 uint8_t fetch_code(struct vm *vm)
@@ -98,6 +117,15 @@ void run_instruction(struct vm *vm, uint8_t i)
   case OP_AND:
   case OP_OR:
     return op_binary(vm, i);
+
+  case OP_GLOBAL:
+    return op_global(vm);
+
+  case OP_SET:
+    return op_set(vm);
+
+  case OP_PRINT:
+    return op_print(vm);
   }
   // TODO: panic on unknown code
   vm_error(vm, "unknown code");
@@ -128,10 +156,29 @@ struct value concatenate(struct value v1, struct value v2)
   return value_make_object(string_concat(s1, s2));
 }
 
+// resolve resolves the given value to an actual value. For ident value,
+// return the coresponding value of the ident. Else, return the value itself.
+static struct value resolve(struct vm *vm, struct value v)
+{
+  if (is_ident(v)) {
+    if (!map_get(globals(vm), v, &v)) {
+      vm_errorf(vm, "unknown variable %s", value_as_string(v)->str);
+      return value_make_nil();
+    }
+  }
+  return v;
+}
+
 void op_binary(struct vm *vm, uint8_t op)
 {
   struct value v2 = vm_pop(vm);
   struct value v1 = vm_pop(vm);
+
+  v1 = resolve(vm, v1);
+  v2 = resolve(vm, v2);
+  if (vm->error) {
+    return;
+  }
 
   struct value v;
   int error = 0;
@@ -221,4 +268,42 @@ void op_binary(struct vm *vm, uint8_t op)
 #undef BINARY_OP_CAL
 #undef BINARY_OP_COMP
 #undef BINARY_OP_LOGIC
+}
+
+static struct map *globals(struct vm *vm) { return &vm->chunk.globals; }
+
+void op_global(struct vm *vm)
+{
+  struct value value = vm_pop(vm);
+  struct value name = vm_pop(vm);
+  if (!is_ident(name)) {
+    panic("programming error: OP_GLOBAL operates on a non-ident name");
+  }
+  map_put(globals(vm), name, value);
+}
+
+void op_set(struct vm *vm)
+{
+  struct value value = vm_pop(vm);
+  struct value name = vm_pop(vm);
+  if (!is_ident(name)) {
+    vm_error(vm, "cannot assign to a non-ident value");
+  }
+  // use resolve to check whether it is a defined variable
+  resolve(vm, name);
+  if (vm->error) {
+    return;
+  }
+  map_put(globals(vm), name, value);
+}
+
+void op_print(struct vm *vm)
+{
+  struct value value = vm_pop(vm);
+  value = resolve(vm, value);
+  if (vm->error) {
+    return;
+  }
+  value_print(value);
+  printf("\n");
 }

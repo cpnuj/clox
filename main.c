@@ -12,20 +12,21 @@ struct vm vm;
 
 void interprete(char *src)
 {
-  vm_init(&vm);
   compile(src, &vm.chunk);
   // debug_chunk(&vm.chunk, "hello kitty");
   vm_run(&vm);
-  if (!vm.error) {
-    value_print(vm_pop(&vm));
-    printf("\n");
+  if (vm.error) {
+    printf("%s\n", vm.errmsg);
   }
+  // reset error
+  vm.error = 0;
 }
 
 static void repl()
 {
   char line[1024];
   struct lexer l;
+  vm_init(&vm);
   for (;;) {
     printf("> ");
     if (!fgets(line, sizeof(line), stdin)) {

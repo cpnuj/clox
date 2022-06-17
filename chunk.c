@@ -13,6 +13,8 @@ void chunk_init(struct chunk *chunk)
   chunk_add_constant(chunk, value_make_nil());
   chunk_add_constant(chunk, value_make_bool(false));
   chunk_add_constant(chunk, value_make_bool(true));
+
+  map_init(&chunk->globals);
 }
 
 void chunk_write(struct chunk *chunk, uint8_t byte, int line)

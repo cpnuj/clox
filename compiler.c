@@ -3,9 +3,9 @@
 #include <string.h>
 
 #include "chunk.h"
-#include "value.h"
-
 #include "compiler.h"
+#include "debug.h"
+#include "value.h"
 
 static void emit_byte(struct compiler *, uint8_t);
 static void emit_bytes(struct compiler *, uint8_t, uint8_t);
@@ -20,6 +20,8 @@ struct token peek(struct compiler *);
 struct token prev(struct compiler *);
 struct token forward(struct compiler *);
 struct token consume(struct compiler *, token_t);
+bool check(struct compiler *, token_t);
+bool match(struct compiler *, token_t);
 
 typedef enum {
   BP_NONE,
@@ -47,6 +49,11 @@ void parse_negative(struct compiler *compiler);
 void parse_group(struct compiler *compiler);
 op_code binary_opcode_from_token(struct token token);
 void parse_binary_op(struct compiler *compiler);
+
+void parse_decl(struct compiler *compiler);
+void parse_var_decl(struct compiler *compiler);
+void parse_stmt(struct compiler *compiler);
+void parse_print_stmt(struct compiler *compiler);
 
 static void emit_byte(struct compiler *compiler, uint8_t byte)
 {
@@ -114,15 +121,108 @@ struct token consume(struct compiler *compiler, token_t type)
   return forward(compiler);
 }
 
+bool check(struct compiler *compiler, token_t type)
+{
+  return peek(compiler).type == type;
+}
+
+bool match(struct compiler *compiler, token_t type)
+{
+  if (check(compiler, type)) {
+    forward(compiler);
+    return true;
+  }
+  return false;
+}
+
 void compile(char *src, struct chunk *chunk)
 {
   struct compiler compiler;
   compiler_init(&compiler, src);
   compiler_set_chunk(&compiler, chunk);
-  parse_expr(&compiler, BP_NONE);
+  parse_decl(&compiler);
   consume(&compiler, TK_EOF);
 
   emit_byte(&compiler, OP_RETURN);
+}
+
+// CFG for program: [0/0]// program        → declaration* EOF ;
+//
+// declaration    → varDecl
+//                → funDecl
+//                | statement ;
+//
+// varDecl        → VAR IDENTIFIER "=" expression ;
+//
+// funDecl        → "fun" function ;
+// function       → IDENTIFIER "(" parameters? ")" blockStmt ;
+// parameters     → IDENTIFIER ("," IDENTIFIER)* ;
+//
+// statement      → exprStmt
+//                | printStmt
+//                | blockStmt
+//                | ifStmt
+//                | whileStmt
+//                | forStmt
+//                | returnStmt
+//                | classStmt;
+//
+// exprStmt       → expression ";" ;
+//
+// printStmt      → "print" expression ";" ;
+//
+// blockStmt      → "{" declaration* "}" ;
+//
+// ifStmt         → "if" "(" expression ")" statement ("else" statement)? ;
+//
+// whileStmt      → "while" "(" expression ")" statement;
+//
+// forStmt        → "for" "(" (varDecl | exprStmt | ";") expression? ";"
+// expression? ")" statement ;
+//
+// returnStmt     → "return" expression? ";" ;
+//
+// classStmt      → "class" IDENTIFIER "{" function* "}" ;
+
+void parse_decl(struct compiler *compiler)
+{
+  if (match(compiler, TK_VAR)) {
+    parse_var_decl(compiler);
+  } else {
+    parse_stmt(compiler);
+  }
+}
+
+void parse_var_decl(struct compiler *compiler)
+{
+  if (!match(compiler, TK_IDENT)) {
+    panic("expect identifier");
+  }
+  parse_literal(compiler);
+  if (match(compiler, TK_EQUAL)) {
+    parse_expr(compiler, BP_NONE);
+  } else {
+    emit_bytes(compiler, OP_CONSTANT, constant_nil);
+  }
+  consume(compiler, TK_SEMICOLON);
+  emit_byte(compiler, OP_GLOBAL);
+}
+
+void parse_stmt(struct compiler *compiler)
+{
+  if (match(compiler, TK_PRINT)) {
+    return parse_print_stmt(compiler);
+  } else {
+    parse_expr(compiler, BP_NONE);
+    consume(compiler, TK_SEMICOLON);
+  }
+}
+
+void parse_print_stmt(struct compiler *compiler)
+{
+  parse_expr(compiler, BP_NONE);
+  consume(compiler, TK_SEMICOLON);
+  emit_byte(compiler, OP_PRINT);
 }
 
 // Pratt parsing algorithm
@@ -153,6 +253,7 @@ nud_func token_nud(struct token token)
   case TK_FALSE:
   case TK_NUMBER:
   case TK_STRING:
+  case TK_IDENT:
     return parse_literal;
   }
   return 0;
@@ -174,6 +275,7 @@ led_func token_led(struct token token)
   case TK_LESS_EQUAL:
   case TK_AND:
   case TK_OR:
+  case TK_EQUAL:
     return parse_binary_op;
   }
   return 0;
@@ -201,6 +303,8 @@ binding_power token_bp(struct token token)
     return BP_AND;
   case TK_OR:
     return BP_OR;
+  case TK_EQUAL:
+    return BP_ASSIGNMENT;
   }
   return BP_NONE;
 }
@@ -224,16 +328,16 @@ void parse_literal(struct compiler *compiler)
 
   // number and string literals are added to chunk's constant array at
   // runtime
-  case TK_NUMBER: {
-    double number = strtod(token_lexem_start(&token), NULL);
-    v = value_make_number(number);
+  case TK_NUMBER:
+    v = value_make_number(strtod(token_lexem_start(&token), NULL));
     break;
-  }
-  case TK_STRING: {
+  case TK_STRING:
     v = value_make_string(token_lexem_start(&token) + 1,
                           token_lexem_len(&token) - 2);
     break;
-  }
+  case TK_IDENT:
+    v = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
+    break;
   }
 
   emit_constant(compiler, v);
@@ -279,6 +383,8 @@ op_code binary_opcode_from_token(struct token token)
     return OP_AND;
   case TK_OR:
     return OP_OR;
+  case TK_EQUAL:
+    return OP_SET;
   default:
     return OP_NONE;
   }

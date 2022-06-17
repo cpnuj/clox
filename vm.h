@@ -14,7 +14,7 @@ struct vm {
   struct value stack[STACK_MAX];
 
   int error;
-  char *errmsg;
+  char errmsg[128];
 };
 
 void vm_init(struct vm *vm);

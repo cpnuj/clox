@@ -108,6 +108,8 @@ int map_get(struct map *map, struct value key, struct value *pvalue)
   if (is_free(item)) {
     return 0;
   }
-  *pvalue = item.value;
+  if (pvalue != NULL) {
+    *pvalue = item.value;
+  }
   return 1;
 }

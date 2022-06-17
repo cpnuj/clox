@@ -36,6 +36,14 @@ struct value value_make_object(struct object *obj)
   return value;
 }
 
+// value_make_ident makes a value with object string but as type VT_IDENT.
+struct value value_make_ident(char *str, int len)
+{
+  struct value value = value_make_string(str, len);
+  value.type = VT_IDENT;
+  return value;
+}
+
 struct value value_make_string(char *str, int len)
 {
   struct value value;
@@ -86,6 +94,8 @@ uint32_t value_hash(struct value value)
     panic("TODO");
   } else if (is_object(value)) {
     return value_as_obj(value)->hash;
+  } else if (is_ident(value)) {
+    return value_as_obj(value)->hash;
   }
   panic("unknown type of value");
 }
@@ -103,6 +113,7 @@ bool value_equal(struct value v1, struct value v2)
   case VT_NUM:
     return value_as_number(v1) == value_as_number(v2);
   case VT_OBJ:
+  case VT_IDENT:
     return object_equal(value_as_obj(v1), value_as_obj(v2));
   default:
     panic("unknown value type");
@@ -127,5 +138,10 @@ void value_print(struct value v)
     break;
   case VT_OBJ:
     object_print(value_as_obj(v));
+    break;
+  case VT_IDENT:
+    printf("ident ");
+    object_print(value_as_obj(v));
+    break;
   }
 }

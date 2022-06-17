@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "map.h"
 #include "value.h"
 
 typedef enum {
@@ -26,14 +27,19 @@ typedef enum {
   OP_LESS_EQUAL,
   OP_AND,
   OP_OR,
+  OP_PRINT,
+  OP_GLOBAL, // define global variable
+  OP_SET,
 } op_code;
 
 struct chunk {
   int len;
   int cap;
   int *lines;
+
   uint8_t *code;
   struct value_list constants;
+  struct map globals;
 };
 
 #define constant_nil 0
