@@ -46,6 +46,7 @@ binding_power token_bp(struct token token);
 void parse_expr(struct compiler *compiler, binding_power bp);
 void parse_literal(struct compiler *compiler);
 void parse_negative(struct compiler *compiler);
+void parse_not(struct compiler *compiler);
 void parse_group(struct compiler *compiler);
 op_code binary_opcode_from_token(struct token token);
 void parse_binary_op(struct compiler *compiler);
@@ -257,6 +258,8 @@ nud_func token_nud(struct token token)
   switch (t) {
   case TK_MINUS:
     return parse_negative;
+  case TK_BANG:
+    return parse_not;
   case TK_LEFT_PAREN:
     return parse_group;
   case TK_NIL:
@@ -359,6 +362,12 @@ void parse_negative(struct compiler *compiler)
   // TODO: Is it right to use BP_UNARY ?
   parse_expr(compiler, BP_UNARY);
   emit_byte(compiler, OP_NEGATIVE);
+}
+
+void parse_not(struct compiler *compiler)
+{
+  parse_expr(compiler, BP_UNARY);
+  emit_byte(compiler, OP_NOT);
 }
 
 void parse_group(struct compiler *compiler)

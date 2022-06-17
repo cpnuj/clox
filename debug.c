@@ -34,6 +34,8 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_DIV", offset);
   case OP_NEGATIVE:
     return simple_instruction("OP_NEGATIVE", offset);
+  case OP_NOT:
+    return simple_instruction("OP_NOT", offset);
   case OP_BANG:
     return simple_instruction("OP_BANG", offset);
   case OP_BANG_EQUAL:

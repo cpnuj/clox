@@ -14,6 +14,7 @@ void run_instruction(struct vm *vm, uint8_t i);
 
 void op_constant(struct vm *vm);
 void op_negative(struct vm *vm);
+void op_not(struct vm *vm);
 void op_binary(struct vm *vm, uint8_t op);
 void op_global(struct vm *vm);
 void op_set(struct vm *vm);
@@ -101,6 +102,8 @@ void run_instruction(struct vm *vm, uint8_t i)
     return op_constant(vm);
   case OP_NEGATIVE:
     return op_negative(vm);
+  case OP_NOT:
+    return op_not(vm);
 
   case OP_ADD:
   case OP_MINUS:
@@ -150,6 +153,17 @@ void op_negative(struct vm *vm)
   }
   double number = value_as_number(value);
   vm_push(vm, value_make_number(-number));
+}
+
+void op_not(struct vm *vm)
+{
+  struct value value = vm_pop(vm);
+  if (value.type != VT_BOOL) {
+    vm_error(vm, "type error: need boolean type");
+    return;
+  }
+  bool boolean = value_as_bool(value);
+  vm_push(vm, value_make_bool(!boolean));
 }
 
 struct value concatenate(struct value v1, struct value v2)
@@ -228,15 +242,16 @@ void op_binary(struct vm *vm, uint8_t op)
     op_calculation(/);
     break;
 
-  // comparision
+  // comparision '!=' '==' work on all value
   case OP_BANG_EQUAL:
-    op_comparison(!=);
+    v = value_make_bool(!value_equal(v1, v2));
     break;
 
   case OP_EQUAL_EQUAL:
-    op_comparison(==);
+    v = value_make_bool(value_equal(v1, v2));
     break;
 
+  // comparision on numbers
   case OP_GREATER:
     op_comparison(>);
     break;
