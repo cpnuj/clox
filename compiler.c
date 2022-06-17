@@ -23,19 +23,19 @@ struct token consume(struct compiler *, token_t);
 bool check(struct compiler *, token_t);
 bool match(struct compiler *, token_t);
 
-typedef enum {
-  BP_NONE,
-  BP_ASSIGNMENT, // =
-  BP_OR,         // or
-  BP_AND,        // and
-  BP_EQUALITY,   // == !=
-  BP_COMPARISON, // < > <= >=
-  BP_TERM,       // + -
-  BP_FACTOR,     // * /
-  BP_UNARY,      // ! -
-  BP_CALL,       // . ()
-  BP_PRIMARY
-} binding_power;
+typedef uint8_t binding_power;
+
+#define BP_NONE 0
+#define BP_ASSIGNMENT 10 // =
+#define BP_OR 20         // or
+#define BP_AND 30        // and
+#define BP_EQUALITY 40   // == !=
+#define BP_COMPARISON 50 // < > <= >=
+#define BP_TERM 60       // + -
+#define BP_FACTOR 70     // * /
+#define BP_UNARY 80      // ! -
+#define BP_CALL 90       // . ()
+#define BP_PRIMARY 100
 
 typedef void (*nud_func)(struct compiler *);
 typedef void (*led_func)(struct compiler *);
@@ -53,7 +53,10 @@ void parse_binary_op(struct compiler *compiler);
 void parse_decl(struct compiler *compiler);
 void parse_var_decl(struct compiler *compiler);
 void parse_stmt(struct compiler *compiler);
+void parse_expr_stmt(struct compiler *compiler);
 void parse_print_stmt(struct compiler *compiler);
+
+static inline bool right_associative(struct token token);
 
 static void emit_byte(struct compiler *compiler, uint8_t byte)
 {
@@ -117,7 +120,10 @@ struct token consume(struct compiler *compiler, token_t type)
 {
   struct token token = peek(compiler);
   // FIXME: Replace assert with error handling
-  assert(token_type(&token) == type);
+  if (token_type(&token) != type) {
+    printf("expect %d but got %d", type, token.type);
+    panic("");
+  }
   return forward(compiler);
 }
 
@@ -140,8 +146,10 @@ void compile(char *src, struct chunk *chunk)
   struct compiler compiler;
   compiler_init(&compiler, src);
   compiler_set_chunk(&compiler, chunk);
-  parse_decl(&compiler);
-  consume(&compiler, TK_EOF);
+
+  while (!match(&compiler, TK_EOF)) {
+    parse_decl(&compiler);
+  }
 
   emit_byte(&compiler, OP_RETURN);
 }
@@ -195,10 +203,7 @@ void parse_decl(struct compiler *compiler)
 
 void parse_var_decl(struct compiler *compiler)
 {
-  if (!match(compiler, TK_IDENT)) {
-    panic("expect identifier");
-  }
-  parse_literal(compiler);
+  parse_expr(compiler, BP_ASSIGNMENT);
   if (match(compiler, TK_EQUAL)) {
     parse_expr(compiler, BP_NONE);
   } else {
@@ -213,9 +218,15 @@ void parse_stmt(struct compiler *compiler)
   if (match(compiler, TK_PRINT)) {
     return parse_print_stmt(compiler);
   } else {
-    parse_expr(compiler, BP_NONE);
-    consume(compiler, TK_SEMICOLON);
+    return parse_expr_stmt(compiler);
   }
+}
+
+void parse_expr_stmt(struct compiler *compiler)
+{
+  parse_expr(compiler, BP_NONE);
+  consume(compiler, TK_SEMICOLON);
+  emit_byte(compiler, OP_POP);
 }
 
 void parse_print_stmt(struct compiler *compiler)
@@ -390,9 +401,20 @@ op_code binary_opcode_from_token(struct token token)
   }
 }
 
+static inline bool right_associative(struct token token)
+{
+  return token.type == TK_EQUAL;
+}
+
 void parse_binary_op(struct compiler *compiler)
 {
   struct token token = prev(compiler);
-  parse_expr(compiler, token_bp(token));
+
+  if (right_associative(token)) {
+    parse_expr(compiler, token_bp(token) - 1);
+  } else {
+    parse_expr(compiler, token_bp(token));
+  }
+
   emit_byte(compiler, binary_opcode_from_token(token));
 }

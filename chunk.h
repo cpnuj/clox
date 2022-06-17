@@ -28,6 +28,7 @@ typedef enum {
   OP_AND,
   OP_OR,
   OP_PRINT,
+  OP_POP,
   OP_GLOBAL, // define global variable
   OP_SET,
 } op_code;

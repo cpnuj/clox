@@ -118,6 +118,10 @@ void run_instruction(struct vm *vm, uint8_t i)
   case OP_OR:
     return op_binary(vm, i);
 
+  case OP_POP:
+    vm_pop(vm);
+    return;
+
   case OP_GLOBAL:
     return op_global(vm);
 
@@ -289,12 +293,16 @@ void op_set(struct vm *vm)
   if (!is_ident(name)) {
     vm_error(vm, "cannot assign to a non-ident value");
   }
+
   // use resolve to check whether it is a defined variable
   resolve(vm, name);
+  value = resolve(vm, value);
   if (vm->error) {
     return;
   }
+
   map_put(globals(vm), name, value);
+  vm_push(vm, value);
 }
 
 void op_print(struct vm *vm)

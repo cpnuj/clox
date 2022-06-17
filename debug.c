@@ -56,6 +56,8 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_OR", offset);
   case OP_PRINT:
     return simple_instruction("OP_PRINT", offset);
+  case OP_POP:
+    return simple_instruction("OP_POP", offset);
   case OP_GLOBAL:
     return simple_instruction("OP_GLOBAL", offset);
   case OP_SET:
