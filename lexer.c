@@ -40,6 +40,9 @@ void lexer_skip_whitespace(struct lexer *l)
       if (lexer_peeknext(l) == '/') {
         while (!lexer_end(l) && lexer_forward(l) != '\n') {
         }
+        break;
+      } else {
+        // single slash at peek, just return
         return;
       }
     default:
