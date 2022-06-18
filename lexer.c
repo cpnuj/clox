@@ -85,7 +85,7 @@ void lexer_error(struct lexer *l, char *errmsg)
   l->errmsg = errmsg;
 }
 
-int iskeyword(char *s, int len) { return CloxKeyword(s, len); }
+int iskeyword(char *s, int len) { return clox_keyword(s, len); }
 
 struct token mktoken(struct lexer *l, token_t type)
 {

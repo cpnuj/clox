@@ -239,6 +239,71 @@ void parse_print_stmt(struct compiler *compiler)
 
 // Pratt parsing algorithm
 
+struct symbol {
+  nud_func nud;
+  led_func led;
+  binding_power bp;
+  bool left_associative;
+};
+
+struct symbol symbols[TK_MAX + 1] = {
+  // literals
+  [TK_NIL] = { parse_literal, NULL, BP_NONE, true },
+  [TK_TRUE] = { parse_literal, NULL, BP_NONE, true },
+  [TK_FALSE] = { parse_literal, NULL, BP_NONE, true },
+  [TK_NUMBER] = { parse_literal, NULL, BP_NONE, true },
+  [TK_IDENT] = { parse_literal, NULL, BP_NONE, true },
+  [TK_STRING] = { parse_literal, NULL, BP_NONE, true },
+
+  // operators
+  [TK_BANG] = { parse_not, NULL, BP_NONE, true },
+
+  // '-' has nud and led
+  [TK_MINUS] = { parse_negative, parse_binary_op, BP_TERM, true },
+  [TK_PLUS] = { NULL, parse_binary_op, BP_TERM, true },
+
+  [TK_SLASH] = { NULL, parse_binary_op, BP_FACTOR, true },
+  [TK_STAR] = { NULL, parse_binary_op, BP_FACTOR, true },
+
+  [TK_BANG_EQUAL] = { NULL, parse_binary_op, BP_EQUALITY, true },
+  [TK_EQUAL_EQUAL] = { NULL, parse_binary_op, BP_EQUALITY, true },
+
+  [TK_GREATER] = { NULL, parse_binary_op, BP_COMPARISON, true },
+  [TK_GREATER_EQUAL] = { NULL, parse_binary_op, BP_COMPARISON, true },
+  [TK_LESS] = { NULL, parse_binary_op, BP_COMPARISON, true },
+  [TK_LESS_EQUAL] = { NULL, parse_binary_op, BP_COMPARISON, true },
+
+  [TK_AND] = { NULL, parse_binary_op, BP_AND, true },
+  [TK_OR] = { NULL, parse_binary_op, BP_OR, true },
+
+  // '=' is right-associative
+  [TK_EQUAL] = { NULL, parse_binary_op, BP_ASSIGNMENT, false },
+
+  // '(' has nud
+  [TK_LEFT_PAREN] = { parse_group, NULL, BP_NONE, true },
+
+  // others
+  [TK_RIGHT_PAREN] = { NULL, NULL, BP_NONE, true },
+  [TK_LEFT_BRACE] = { NULL, NULL, BP_NONE, true },
+  [TK_RIGHT_BRACE] = { NULL, NULL, BP_NONE, true },
+  [TK_COMMA] = { NULL, NULL, BP_NONE, true },
+  [TK_DOT] = { NULL, NULL, BP_NONE, true },
+  [TK_SEMICOLON] = { NULL, NULL, BP_NONE, true },
+
+  // Keywords
+  [TK_FOR] = { NULL, NULL, BP_NONE, true },
+  [TK_PRINT] = { NULL, NULL, BP_NONE, true },
+  [TK_RETURN] = { NULL, NULL, BP_NONE, true },
+  [TK_CLASS] = { NULL, NULL, BP_NONE, true },
+  [TK_THIS] = { NULL, NULL, BP_NONE, true },
+  [TK_ELSE] = { NULL, NULL, BP_NONE, true },
+  [TK_IF] = { NULL, NULL, BP_NONE, true },
+  [TK_VAR] = { NULL, NULL, BP_NONE, true },
+  [TK_WHILE] = { NULL, NULL, BP_NONE, true },
+  [TK_FUN] = { NULL, NULL, BP_NONE, true },
+  [TK_SUPER] = { NULL, NULL, BP_NONE, true },
+};
+
 void parse_expr(struct compiler *compiler, binding_power bp)
 {
   nud_func nud = token_nud(forward(compiler));
@@ -252,76 +317,9 @@ void parse_expr(struct compiler *compiler, binding_power bp)
   }
 }
 
-nud_func token_nud(struct token token)
-{
-  token_t t = token_type(&token);
-  switch (t) {
-  case TK_MINUS:
-    return parse_negative;
-  case TK_BANG:
-    return parse_not;
-  case TK_LEFT_PAREN:
-    return parse_group;
-  case TK_NIL:
-  case TK_TRUE:
-  case TK_FALSE:
-  case TK_NUMBER:
-  case TK_STRING:
-  case TK_IDENT:
-    return parse_literal;
-  }
-  return 0;
-}
-
-led_func token_led(struct token token)
-{
-  token_t t = token_type(&token);
-  switch (t) {
-  case TK_MINUS:
-  case TK_PLUS:
-  case TK_STAR:
-  case TK_SLASH:
-  case TK_BANG_EQUAL:
-  case TK_EQUAL_EQUAL:
-  case TK_GREATER:
-  case TK_GREATER_EQUAL:
-  case TK_LESS:
-  case TK_LESS_EQUAL:
-  case TK_AND:
-  case TK_OR:
-  case TK_EQUAL:
-    return parse_binary_op;
-  }
-  return 0;
-}
-
-binding_power token_bp(struct token token)
-{
-  token_t t = token_type(&token);
-  switch (t) {
-  case TK_MINUS:
-  case TK_PLUS:
-    return BP_TERM;
-  case TK_STAR:
-  case TK_SLASH:
-    return BP_FACTOR;
-  case TK_BANG_EQUAL:
-  case TK_EQUAL_EQUAL:
-    return BP_EQUALITY;
-  case TK_GREATER:
-  case TK_GREATER_EQUAL:
-  case TK_LESS:
-  case TK_LESS_EQUAL:
-    return BP_COMPARISON;
-  case TK_AND:
-    return BP_AND;
-  case TK_OR:
-    return BP_OR;
-  case TK_EQUAL:
-    return BP_ASSIGNMENT;
-  }
-  return BP_NONE;
-}
+nud_func token_nud(struct token token) { return symbols[token.type].nud; }
+led_func token_led(struct token token) { return symbols[token.type].led; }
+binding_power token_bp(struct token token) { return symbols[token.type].bp; }
 
 void parse_literal(struct compiler *compiler)
 {
@@ -410,19 +408,19 @@ op_code binary_opcode_from_token(struct token token)
   }
 }
 
-static inline bool right_associative(struct token token)
+static inline bool left_associative(struct token token)
 {
-  return token.type == TK_EQUAL;
+  return symbols[token.type].left_associative;
 }
 
 void parse_binary_op(struct compiler *compiler)
 {
   struct token token = prev(compiler);
 
-  if (right_associative(token)) {
-    parse_expr(compiler, token_bp(token) - 1);
-  } else {
+  if (left_associative(token)) {
     parse_expr(compiler, token_bp(token));
+  } else {
+    parse_expr(compiler, token_bp(token) - 1);
   }
 
   emit_byte(compiler, binary_opcode_from_token(token));
