@@ -8,16 +8,28 @@ import subprocess
 ExitOnError = False
 
 Total = 0
+Passed = []
 Failed = []
 
 def report():
     global Total, Failed
+    summary = ""
+
     passed = Total-len(Failed)
-    print("=== Total: %d Passed: %d Pass Rate: %.2f%%" %(Total, passed, passed/Total*100))
+    # sprintf(summary, "=== Total: %d Passed: %d Pass Rate: %.2f%%" %(Total, passed, passed/Total*100))
+    summary = "=== Total: {} Passed: {} Pass Rate: {:.2f}%".format(Total, passed, passed/Total*100)
     if len(Failed) > 0:
         print("--- Failed:")
         for f in Failed:
             print("--- "+f)
+    print(summary)
+
+    f = open("PASSTESTS", "w")
+    for passed in Passed:
+      f.write(passed)
+      f.write("\n")
+    f.write(summary)
+    f.close()
 
 def testFile(filename):
     if not filename.endswith(".lox"):
@@ -50,6 +62,7 @@ def testFile(filename):
         if ExitOnError:
             sys.exit(1)
     else:
+        Passed.append(filename)
         print("=== PASS: %s (%0.2f)s" %(filename, elapsed))
 
 def testDir(dirname):
