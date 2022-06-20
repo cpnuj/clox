@@ -1,3 +1,4 @@
+#include <string.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -84,6 +85,11 @@ struct value value_array_get(struct value_list *vlist, int idx)
   return *(vlist->value + idx);
 }
 
+uint32_t hash_double(double d)
+{
+  return string_hash((char *)&d, sizeof(double) / sizeof(char));
+}
+
 uint32_t value_hash(struct value value)
 {
   if (is_nil(value)) {
@@ -91,7 +97,7 @@ uint32_t value_hash(struct value value)
   } else if (is_bool(value)) {
     return (value_as_bool(value) == true) ? 1 : 0;
   } else if (is_number(value)) {
-    panic("TODO");
+    return hash_double(value_as_number(value));
   } else if (is_object(value)) {
     return value_as_obj(value)->hash;
   } else if (is_ident(value)) {

@@ -22,7 +22,7 @@ static void emit_bytes(struct compiler *, uint8_t, uint8_t);
 static void emit_constant(struct compiler *, struct value);
 static void emit_return(struct compiler *);
 
-static uint8_t make_constant(struct chunk *, struct value);
+static uint8_t make_constant(struct compiler *, struct value);
 
 struct token peek(struct compiler *);
 struct token prev(struct compiler *);
@@ -94,6 +94,7 @@ void compiler_init(struct compiler *compiler, char *src)
 {
   lex_init(&compiler->lexer, src, strlen(src));
   scope_init(&compiler->scope);
+  map_init(&compiler->mconstants);
   // initial forward
   forward(compiler);
 }
@@ -116,11 +117,7 @@ static void emit_bytes(struct compiler *compiler, uint8_t b1, uint8_t b2)
 
 static void emit_constant(struct compiler *compiler, struct value value)
 {
-  // TODO: Do not make new constant to value array for bool and nil
-  // to reduce memory usage.
-  // We have initialized constant for bool and nil now, but need compiler
-  // error handling.
-  emit_bytes(compiler, OP_CONSTANT, make_constant(compiler->chunk, value));
+  emit_bytes(compiler, OP_CONSTANT, make_constant(compiler, value));
 }
 
 static void emit_return(struct compiler *compiler)
@@ -128,13 +125,22 @@ static void emit_return(struct compiler *compiler)
   emit_byte(compiler, OP_RETURN);
 }
 
-static uint8_t make_constant(struct chunk *chunk, struct value value)
+// make_constant returns the idx of constant value. If the value has been
+// created, return its idx. Else, add new constant to compiling chunk.
+static uint8_t make_constant(struct compiler *compiler, struct value value)
 {
-  int constant = chunk_add_constant(chunk, value);
+#define value_as_int(value) ((int)value_as_number(value))
+  struct value vidx;
+  if (map_get(&compiler->mconstants, value, &vidx)) {
+    return (uint8_t)value_as_int(vidx);
+  }
+  int constant = chunk_add_constant(compiler->chunk, value);
   if (constant > UINT8_MAX) {
     // FIXME: add error
     return 0;
   }
+  vidx = value_make_number((double)constant);
+  map_put(&compiler->mconstants, value, vidx);
   return (uint8_t)constant;
 }
 
@@ -237,7 +243,7 @@ void parse_decl(struct compiler *compiler)
 void defvar(struct compiler *compiler, struct value name)
 {
   if (is_global(&compiler->scope)) {
-    uint8_t constant = make_constant(compiler->chunk, name);
+    uint8_t constant = make_constant(compiler, name);
     emit_bytes(compiler, OP_GLOBAL, constant);
   } else {
     scope_add(&compiler->scope, name);
@@ -247,13 +253,13 @@ void defvar(struct compiler *compiler, struct value name)
 
 void setvar(struct compiler *compiler, struct value name)
 {
-  uint8_t constant = make_constant(compiler->chunk, name);
+  uint8_t constant = make_constant(compiler, name);
   emit_bytes(compiler, OP_SET_GLOBAL, constant);
 }
 
 void getvar(struct compiler *compiler, struct value name)
 {
-  uint8_t constant = make_constant(compiler->chunk, name);
+  uint8_t constant = make_constant(compiler, name);
   emit_bytes(compiler, OP_GET_GLOBAL, constant);
 }
 
@@ -267,7 +273,7 @@ void parse_var_decl(struct compiler *compiler)
   if (match(compiler, TK_EQUAL)) {
     parse_expr(compiler, BP_NONE);
   } else {
-    emit_bytes(compiler, OP_CONSTANT, constant_nil);
+    emit_constant(compiler, value_make_nil());
   }
 
   consume(compiler, TK_SEMICOLON);
@@ -394,22 +400,17 @@ binding_power token_bp(struct token token) { return symbols[token.type].bp; }
 void parse_literal(struct compiler *compiler)
 {
   struct value v;
-
   struct token token = prev(compiler);
   switch (token_type(&token)) {
-  // nil and bool values are already stored in chunk's constant array
   case TK_NIL:
-    emit_bytes(compiler, OP_CONSTANT, constant_nil);
-    return;
+    v = value_make_nil();
+    break;
   case TK_FALSE:
-    emit_bytes(compiler, OP_CONSTANT, constant_false);
-    return;
+    v = value_make_bool(false);
+    break;
   case TK_TRUE:
-    emit_bytes(compiler, OP_CONSTANT, constant_true);
-    return;
-
-  // number and string literals are added to chunk's constant array at
-  // runtime
+    v = value_make_bool(true);
+    break;
   case TK_NUMBER:
     v = value_make_number(strtod(token_lexem_start(&token), NULL));
     break;
@@ -418,7 +419,6 @@ void parse_literal(struct compiler *compiler)
                           token_lexem_len(&token) - 2);
     break;
   }
-
   emit_constant(compiler, v);
 }
 

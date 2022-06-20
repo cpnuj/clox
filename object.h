@@ -33,6 +33,7 @@ struct object *string_copy(char *, int);
 struct object *string_take(char *, int);
 
 struct object *string_concat(struct obj_string *, struct obj_string *);
+uint32_t string_hash(const char *, int);
 bool string_equal(struct obj_string *, struct obj_string *);
 
 void object_print(struct object *);

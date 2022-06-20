@@ -47,10 +47,6 @@ struct chunk {
   struct map globals;
 };
 
-#define constant_nil 0
-#define constant_false 1
-#define constant_true 2
-
 void chunk_init(struct chunk *chunk);
 void chunk_write(struct chunk *chunk, uint8_t byte, int line);
 void chunk_free(struct chunk *chunk);

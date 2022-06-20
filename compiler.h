@@ -24,6 +24,7 @@ struct compiler {
   struct token prev;
   struct chunk *chunk; // Compiling chunk
   struct scope scope;
+  struct map mconstants; // map from value to idx in the chunk's constant list
 };
 
 void compile(char *src, struct chunk *chunk);

@@ -25,7 +25,7 @@ bool object_equal(struct object *obj1, struct object *obj2)
 }
 
 // FNV-1a hash function
-static uint32_t string_hash(const char *key, int length)
+uint32_t string_hash(const char *key, int length)
 {
   uint32_t hash = 2166136261u;
   for (int i = 0; i < length; i++) {
