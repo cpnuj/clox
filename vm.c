@@ -10,6 +10,7 @@ void vm_error(struct vm *vm, char *errmsg);
 void vm_errorf(struct vm *vm, char *format, ...);
 
 uint8_t fetch_code(struct vm *vm);
+struct value fetch_constant(struct vm *vm);
 void run_instruction(struct vm *vm, uint8_t i);
 
 void op_constant(struct vm *vm);
@@ -17,10 +18,10 @@ void op_negative(struct vm *vm);
 void op_not(struct vm *vm);
 void op_binary(struct vm *vm, uint8_t op);
 void op_global(struct vm *vm);
-void op_set(struct vm *vm);
+void op_set_global(struct vm *vm);
+void op_get_global(struct vm *vm);
 void op_print(struct vm *vm);
 
-static struct value resolve(struct vm *vm, struct value v);
 static struct map *globals(struct vm *vm);
 
 void vm_init(struct vm *vm)
@@ -85,6 +86,7 @@ void vm_errorf(struct vm *vm, char *format, ...)
   vsprintf(vm->errmsg, format, ap);
 }
 
+// fetch_code fetch and return the next code from vm chunk.
 uint8_t fetch_code(struct vm *vm)
 {
   if (vm->pc >= vm->chunk.len) {
@@ -93,6 +95,12 @@ uint8_t fetch_code(struct vm *vm)
   uint8_t code = vm->chunk.code[vm->pc];
   vm->pc++;
   return code;
+}
+
+struct value fetch_constant(struct vm *vm)
+{
+  uint8_t off = fetch_code(vm);
+  return vm->chunk.constants.value[off];
 }
 
 void run_instruction(struct vm *vm, uint8_t i)
@@ -128,8 +136,10 @@ void run_instruction(struct vm *vm, uint8_t i)
   case OP_GLOBAL:
     return op_global(vm);
 
-  case OP_SET:
-    return op_set(vm);
+  case OP_SET_GLOBAL:
+    return op_set_global(vm);
+  case OP_GET_GLOBAL:
+    return op_get_global(vm);
 
   case OP_PRINT:
     return op_print(vm);
@@ -138,11 +148,7 @@ void run_instruction(struct vm *vm, uint8_t i)
   vm_error(vm, "unknown code");
 }
 
-void op_constant(struct vm *vm)
-{
-  uint8_t off = fetch_code(vm);
-  vm_push(vm, vm->chunk.constants.value[off]);
-}
+void op_constant(struct vm *vm) { vm_push(vm, fetch_constant(vm)); }
 
 void op_negative(struct vm *vm)
 {
@@ -174,29 +180,10 @@ struct value concatenate(struct value v1, struct value v2)
   return value_make_object(string_concat(s1, s2));
 }
 
-// resolve resolves the given value to an actual value. For ident value,
-// return the coresponding value of the ident. Else, return the value itself.
-static struct value resolve(struct vm *vm, struct value v)
-{
-  if (is_ident(v)) {
-    if (!map_get(globals(vm), v, &v)) {
-      vm_errorf(vm, "unknown variable %s", value_as_string(v)->str);
-      return value_make_nil();
-    }
-  }
-  return v;
-}
-
 void op_binary(struct vm *vm, uint8_t op)
 {
   struct value v2 = vm_pop(vm);
   struct value v1 = vm_pop(vm);
-
-  v1 = resolve(vm, v1);
-  v2 = resolve(vm, v2);
-  if (vm->error) {
-    return;
-  }
 
   struct value v;
   int error = 0;
@@ -293,26 +280,25 @@ static struct map *globals(struct vm *vm) { return &vm->chunk.globals; }
 
 void op_global(struct vm *vm)
 {
+  struct value name = fetch_constant(vm);
   struct value value = vm_pop(vm);
-  struct value name = vm_pop(vm);
   if (!is_ident(name)) {
     panic("programming error: OP_GLOBAL operates on a non-ident name");
   }
   map_put(globals(vm), name, value);
 }
 
-void op_set(struct vm *vm)
+void op_set_global(struct vm *vm)
 {
+  struct value name = fetch_constant(vm);
   struct value value = vm_pop(vm);
-  struct value name = vm_pop(vm);
+
   if (!is_ident(name)) {
     vm_error(vm, "cannot assign to a non-ident value");
+    return;
   }
-
-  // use resolve to check whether it is a defined variable
-  resolve(vm, name);
-  value = resolve(vm, value);
-  if (vm->error) {
+  if (!map_get(globals(vm), name, NULL)) {
+    vm_errorf(vm, "unknown variable %s", value_as_string(name)->str);
     return;
   }
 
@@ -320,10 +306,26 @@ void op_set(struct vm *vm)
   vm_push(vm, value);
 }
 
+void op_get_global(struct vm *vm)
+{
+  struct value name = fetch_constant(vm);
+  struct value value;
+
+  if (!is_ident(name)) {
+    vm_error(vm, "cannot assign to a non-ident value");
+    return;
+  }
+
+  if (!map_get(globals(vm), name, &value)) {
+    vm_errorf(vm, "unknown variable %s", value_as_string(name)->str);
+    return;
+  }
+  vm_push(vm, value);
+}
+
 void op_print(struct vm *vm)
 {
   struct value value = vm_pop(vm);
-  value = resolve(vm, value);
   if (vm->error) {
     return;
   }

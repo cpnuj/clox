@@ -7,6 +7,16 @@
 #include "debug.h"
 #include "value.h"
 
+void scope_init(struct scope *);
+void scope_in(struct scope *);
+void scope_out(struct scope *);
+void scope_add(struct scope *, struct value);
+void scope_find(struct scope *, struct value);
+bool is_global(struct scope *);
+
+void compiler_init(struct compiler *, char *);
+void compiler_set_chunk(struct compiler *, struct chunk *);
+
 static void emit_byte(struct compiler *, uint8_t);
 static void emit_bytes(struct compiler *, uint8_t, uint8_t);
 static void emit_constant(struct compiler *, struct value);
@@ -14,8 +24,6 @@ static void emit_return(struct compiler *);
 
 static uint8_t make_constant(struct chunk *, struct value);
 
-void compiler_init(struct compiler *, char *);
-void compiler_set_chunk(struct compiler *, struct chunk *);
 struct token peek(struct compiler *);
 struct token prev(struct compiler *);
 struct token forward(struct compiler *);
@@ -45,6 +53,7 @@ binding_power token_bp(struct token token);
 
 void parse_expr(struct compiler *compiler, binding_power bp);
 void parse_literal(struct compiler *compiler);
+void parse_variable(struct compiler *compiler);
 void parse_negative(struct compiler *compiler);
 void parse_not(struct compiler *compiler);
 void parse_group(struct compiler *compiler);
@@ -56,8 +65,43 @@ void parse_var_decl(struct compiler *compiler);
 void parse_stmt(struct compiler *compiler);
 void parse_expr_stmt(struct compiler *compiler);
 void parse_print_stmt(struct compiler *compiler);
+void parse_block(struct compiler *compiler);
 
-static inline bool right_associative(struct token token);
+void defvar(struct compiler *compiler, struct value name);
+void setvar(struct compiler *compiler, struct value name);
+void getvar(struct compiler *compiler, struct value name);
+
+static inline bool left_associative(struct token token);
+
+void scope_init(struct scope *scope)
+{
+  scope->sp = -1;
+  scope->cur_depth = 0;
+}
+
+void scope_in(struct scope *scope) { scope->cur_depth++; }
+
+void scope_out(struct scope *scope) { scope->cur_depth--; }
+
+void scope_add(struct scope *scope, struct value name) {}
+
+void scope_find(struct scope *scope, struct value name) {}
+
+// is_global returns true if the scope is in global env.
+bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
+
+void compiler_init(struct compiler *compiler, char *src)
+{
+  lex_init(&compiler->lexer, src, strlen(src));
+  scope_init(&compiler->scope);
+  // initial forward
+  forward(compiler);
+}
+
+void compiler_set_chunk(struct compiler *compiler, struct chunk *chunk)
+{
+  compiler->chunk = chunk;
+}
 
 static void emit_byte(struct compiler *compiler, uint8_t byte)
 {
@@ -92,18 +136,6 @@ static uint8_t make_constant(struct chunk *chunk, struct value value)
     return 0;
   }
   return (uint8_t)constant;
-}
-
-void compiler_init(struct compiler *compiler, char *src)
-{
-  lex_init(&compiler->lexer, src, strlen(src));
-  // initial forward
-  forward(compiler);
-}
-
-void compiler_set_chunk(struct compiler *compiler, struct chunk *chunk)
-{
-  compiler->chunk = chunk;
 }
 
 struct token peek(struct compiler *compiler) { return compiler->curr; }
@@ -202,22 +234,52 @@ void parse_decl(struct compiler *compiler)
   }
 }
 
+void defvar(struct compiler *compiler, struct value name)
+{
+  if (is_global(&compiler->scope)) {
+    uint8_t constant = make_constant(compiler->chunk, name);
+    emit_bytes(compiler, OP_GLOBAL, constant);
+  } else {
+    scope_add(&compiler->scope, name);
+    emit_byte(compiler, OP_LOCAL);
+  }
+}
+
+void setvar(struct compiler *compiler, struct value name)
+{
+  uint8_t constant = make_constant(compiler->chunk, name);
+  emit_bytes(compiler, OP_SET_GLOBAL, constant);
+}
+
+void getvar(struct compiler *compiler, struct value name)
+{
+  uint8_t constant = make_constant(compiler->chunk, name);
+  emit_bytes(compiler, OP_GET_GLOBAL, constant);
+}
+
 void parse_var_decl(struct compiler *compiler)
 {
-  parse_expr(compiler, BP_ASSIGNMENT);
+  consume(compiler, TK_IDENT);
+  struct token token = prev(compiler);
+  struct value name
+      = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
+
   if (match(compiler, TK_EQUAL)) {
     parse_expr(compiler, BP_NONE);
   } else {
     emit_bytes(compiler, OP_CONSTANT, constant_nil);
   }
+
   consume(compiler, TK_SEMICOLON);
-  emit_byte(compiler, OP_GLOBAL);
+  defvar(compiler, name);
 }
 
 void parse_stmt(struct compiler *compiler)
 {
   if (match(compiler, TK_PRINT)) {
     return parse_print_stmt(compiler);
+  } else if (match(compiler, TK_LEFT_BRACE)) {
+    return parse_block(compiler);
   } else {
     return parse_expr_stmt(compiler);
   }
@@ -237,6 +299,14 @@ void parse_print_stmt(struct compiler *compiler)
   emit_byte(compiler, OP_PRINT);
 }
 
+void parse_block(struct compiler *compiler)
+{
+  scope_in(&compiler->scope);
+  parse_decl(compiler);
+  consume(compiler, TK_RIGHT_BRACE);
+  scope_out(&compiler->scope);
+}
+
 // Pratt parsing algorithm
 
 struct symbol {
@@ -252,7 +322,7 @@ struct symbol symbols[TK_MAX + 1] = {
   [TK_TRUE] = { parse_literal, NULL, BP_NONE, true },
   [TK_FALSE] = { parse_literal, NULL, BP_NONE, true },
   [TK_NUMBER] = { parse_literal, NULL, BP_NONE, true },
-  [TK_IDENT] = { parse_literal, NULL, BP_NONE, true },
+  [TK_IDENT] = { parse_variable, NULL, BP_NONE, true },
   [TK_STRING] = { parse_literal, NULL, BP_NONE, true },
 
   // operators
@@ -347,12 +417,23 @@ void parse_literal(struct compiler *compiler)
     v = value_make_string(token_lexem_start(&token) + 1,
                           token_lexem_len(&token) - 2);
     break;
-  case TK_IDENT:
-    v = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
-    break;
   }
 
   emit_constant(compiler, v);
+}
+
+void parse_variable(struct compiler *compiler)
+{
+  struct token token = prev(compiler);
+  struct value name
+      = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
+
+  if (match(compiler, TK_EQUAL)) {
+    parse_expr(compiler, BP_NONE);
+    setvar(compiler, name);
+  } else {
+    getvar(compiler, name);
+  }
 }
 
 void parse_negative(struct compiler *compiler)
@@ -402,7 +483,7 @@ op_code binary_opcode_from_token(struct token token)
   case TK_OR:
     return OP_OR;
   case TK_EQUAL:
-    return OP_SET;
+    return OP_SET_GLOBAL;
   default:
     return OP_NONE;
   }

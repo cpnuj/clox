@@ -22,8 +22,6 @@ int debug_instruction(struct chunk *chunk, int offset)
   switch (instruction) {
   case OP_RETURN:
     return simple_instruction("OP_RETURN", offset);
-  case OP_CONSTANT:
-    return constant_instruction("OP_CONSTANT", chunk, offset);
   case OP_ADD:
     return simple_instruction("OP_ADD", offset);
   case OP_MINUS:
@@ -60,10 +58,19 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_PRINT", offset);
   case OP_POP:
     return simple_instruction("OP_POP", offset);
+
+  case OP_CONSTANT:
+    return constant_instruction("OP_CONSTANT", chunk, offset);
   case OP_GLOBAL:
-    return simple_instruction("OP_GLOBAL", offset);
-  case OP_SET:
-    return simple_instruction("OP_SET", offset);
+    return constant_instruction("OP_GLOBAL", chunk, offset);
+  case OP_LOCAL:
+    return simple_instruction("OP_LOCAL", offset);
+  case OP_SET_GLOBAL:
+    return constant_instruction("OP_SET_GLOBAL", chunk, offset);
+  case OP_GET_GLOBAL:
+    return constant_instruction("OP_GET_GLOBAL", chunk, offset);
+  case OP_SET_LOCAL:
+    return simple_instruction("OP_SET_LOCAL", offset);
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;

@@ -31,7 +31,10 @@ typedef enum {
   OP_PRINT,
   OP_POP,
   OP_GLOBAL, // define global variable
-  OP_SET,
+  OP_LOCAL,  // define local variable
+  OP_SET_GLOBAL,
+  OP_GET_GLOBAL,
+  OP_SET_LOCAL,
 } op_code;
 
 struct chunk {

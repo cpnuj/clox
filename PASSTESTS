@@ -17,6 +17,7 @@
 ./test/variable/redeclare_global.lox
 ./test/variable/redefine_global.lox
 ./test/variable/uninitialized.lox
+./test/variable/use_global_in_initializer.lox
 ./test/assignment/syntax.lox
 ./test/assignment/associativity.lox
 ./test/assignment/global.lox
@@ -25,4 +26,4 @@
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
-=== Total: 265 Passed: 27 Pass Rate: 10.19%
+=== Total: 265 Passed: 28 Pass Rate: 10.57%
