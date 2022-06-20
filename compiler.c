@@ -11,7 +11,8 @@ void scope_init(struct scope *);
 void scope_in(struct scope *);
 void scope_out(struct scope *);
 void scope_add(struct scope *, struct value);
-void scope_find(struct scope *, struct value);
+int scope_find(struct scope *, struct value);
+void scope_debug(struct scope *);
 bool is_global(struct scope *);
 
 void compiler_init(struct compiler *, char *);
@@ -81,11 +82,46 @@ void scope_init(struct scope *scope)
 
 void scope_in(struct scope *scope) { scope->cur_depth++; }
 
-void scope_out(struct scope *scope) { scope->cur_depth--; }
+void scope_out(struct scope *scope)
+{
+  // pop all locals belonging to current depth
+  while (scope->sp >= 0) {
+    if (scope->locals[scope->sp].depth != scope->cur_depth) {
+      break;
+    }
+    scope->sp--;
+  }
+  scope->cur_depth--;
+}
 
-void scope_add(struct scope *scope, struct value name) {}
+void scope_add(struct scope *scope, struct value name)
+{
+  scope->sp++;
+  scope->locals[scope->sp].depth = scope->cur_depth;
+  scope->locals[scope->sp].name = name;
+}
 
-void scope_find(struct scope *scope, struct value name) {}
+int scope_find(struct scope *scope, struct value name)
+{
+  for (int at = scope->sp; at >= 0; at--) {
+    if (value_equal(scope->locals[at].name, name)) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+void scope_debug(struct scope *scope)
+{
+  printf("========== debug scope ==========\n");
+  printf("sp: %d cur_depth: %d\n", scope->sp, scope->cur_depth);
+  for (int i = 0; i <= scope->sp; i++) {
+    printf("%5d depth %6d  ", i, scope->locals[i].depth);
+    value_print(scope->locals[i].name);
+    printf("\n");
+  }
+  printf("======== end debug scope ========\n");
+}
 
 // is_global returns true if the scope is in global env.
 bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
@@ -247,18 +283,30 @@ void defvar(struct compiler *compiler, struct value name)
     emit_bytes(compiler, OP_GLOBAL, constant);
   } else {
     scope_add(&compiler->scope, name);
-    emit_byte(compiler, OP_LOCAL);
   }
 }
 
+// TODO: setvar and getvar have similar structure, consider refactor
 void setvar(struct compiler *compiler, struct value name)
 {
+  int idx = scope_find(&compiler->scope, name);
+  if (idx >= 0) {
+    emit_bytes(compiler, OP_SET_LOCAL, (uint8_t)idx);
+    return;
+  }
+  // find in globals
   uint8_t constant = make_constant(compiler, name);
   emit_bytes(compiler, OP_SET_GLOBAL, constant);
 }
 
 void getvar(struct compiler *compiler, struct value name)
 {
+  int idx = scope_find(&compiler->scope, name);
+  if (idx >= 0) {
+    emit_bytes(compiler, OP_GET_LOCAL, (uint8_t)idx);
+    return;
+  }
+  // find in globals
   uint8_t constant = make_constant(compiler, name);
   emit_bytes(compiler, OP_GET_GLOBAL, constant);
 }
@@ -308,7 +356,9 @@ void parse_print_stmt(struct compiler *compiler)
 void parse_block(struct compiler *compiler)
 {
   scope_in(&compiler->scope);
-  parse_decl(compiler);
+  while (!check(compiler, TK_RIGHT_BRACE) && !check(compiler, TK_EOF)) {
+    parse_decl(compiler);
+  }
   consume(compiler, TK_RIGHT_BRACE);
   scope_out(&compiler->scope);
 }

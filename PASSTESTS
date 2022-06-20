@@ -14,16 +14,23 @@
 ./test/operator/add.lox
 ./test/number/nan_equality.lox
 ./test/number/literals.lox
+./test/variable/in_middle_of_block.lox
 ./test/variable/redeclare_global.lox
 ./test/variable/redefine_global.lox
+./test/variable/in_nested_block.lox
+./test/variable/shadow_and_local.lox
+./test/variable/shadow_local.lox
+./test/variable/shadow_global.lox
 ./test/variable/uninitialized.lox
 ./test/variable/use_global_in_initializer.lox
 ./test/assignment/syntax.lox
 ./test/assignment/associativity.lox
+./test/assignment/local.lox
 ./test/assignment/global.lox
 ./test/nil/literal.lox
 ./test/comments/line_at_eof.lox
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
-=== Total: 265 Passed: 28 Pass Rate: 10.57%
+./test/block/scope.lox
+=== Total: 265 Passed: 35 Pass Rate: 13.21%

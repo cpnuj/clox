@@ -70,7 +70,9 @@ int debug_instruction(struct chunk *chunk, int offset)
   case OP_GET_GLOBAL:
     return constant_instruction("OP_GET_GLOBAL", chunk, offset);
   case OP_SET_LOCAL:
-    return simple_instruction("OP_SET_LOCAL", offset);
+    return constant_instruction("OP_SET_LOCAL", chunk, offset);
+  case OP_GET_LOCAL:
+    return constant_instruction("OP_GET_LOCAL", chunk, offset);
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;

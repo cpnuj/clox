@@ -20,6 +20,8 @@ void op_binary(struct vm *vm, uint8_t op);
 void op_global(struct vm *vm);
 void op_set_global(struct vm *vm);
 void op_get_global(struct vm *vm);
+void op_set_local(struct vm *vm);
+void op_get_local(struct vm *vm);
 void op_print(struct vm *vm);
 
 static struct map *globals(struct vm *vm);
@@ -140,6 +142,11 @@ void run_instruction(struct vm *vm, uint8_t i)
     return op_set_global(vm);
   case OP_GET_GLOBAL:
     return op_get_global(vm);
+
+  case OP_SET_LOCAL:
+    return op_set_local(vm);
+  case OP_GET_LOCAL:
+    return op_get_local(vm);
 
   case OP_PRINT:
     return op_print(vm);
@@ -321,6 +328,22 @@ void op_get_global(struct vm *vm)
     return;
   }
   vm_push(vm, value);
+}
+
+void op_set_local(struct vm *vm)
+{
+  uint8_t off = fetch_code(vm);
+  struct value *plocal = &vm->stack[off];
+  struct value value = vm_pop(vm);
+  *plocal = value;
+  vm_push(vm, value);
+}
+
+void op_get_local(struct vm *vm)
+{
+  uint8_t off = fetch_code(vm);
+  struct value *plocal = &vm->stack[off];
+  vm_push(vm, *plocal);
 }
 
 void op_print(struct vm *vm)
