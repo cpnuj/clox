@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -46,20 +47,41 @@ typedef uint8_t binding_power;
 #define BP_CALL 90       // . ()
 #define BP_PRIMARY 100
 
-typedef void (*nud_func)(struct compiler *);
-typedef void (*led_func)(struct compiler *);
+// struct detail stores the parsing info of detail expression,
+// used by led_func.
+// In our one-pass compiler, in general we parse a series of tokens
+// and emit codes immediately. But resolving variables is an exception
+// since we don't know we should set or get the value of the variable
+// until we see the following tokens. So we store the information
+// in this detail structure, and operators should eval these details
+// in their own way.
+// Currently, only literal and variable would be evaled effectively.
+// Nud functions of literal and variable would not emit any code
+// until its detail is evaled by the led of operators.
+struct detail {
+  token_t id;
+  int arity;
+  struct value first;
+};
+
+static struct detail empty_detail(token_t);
+static struct detail unary_detail(token_t, struct value);
+
+typedef struct detail (*nud_func)(struct compiler *);
+typedef struct detail (*led_func)(struct compiler *, struct detail);
 nud_func token_nud(struct token token);
 led_func token_led(struct token token);
 binding_power token_bp(struct token token);
 
-void parse_expr(struct compiler *compiler, binding_power bp);
-void parse_literal(struct compiler *compiler);
-void parse_variable(struct compiler *compiler);
-void parse_negative(struct compiler *compiler);
-void parse_not(struct compiler *compiler);
-void parse_group(struct compiler *compiler);
-op_code binary_opcode_from_token(struct token token);
-void parse_binary_op(struct compiler *compiler);
+struct detail expression(struct compiler *compiler, binding_power bp);
+struct detail literal(struct compiler *compiler);
+struct detail variable(struct compiler *compiler);
+struct detail negative(struct compiler *compiler);
+struct detail not(struct compiler * compiler);
+struct detail group(struct compiler *compiler);
+struct detail assignment(struct compiler *c, struct detail left);
+struct detail infix(struct compiler *compiler, struct detail);
+op_code infix_opcode(struct token token);
 
 void parse_decl(struct compiler *compiler);
 void parse_var_decl(struct compiler *compiler);
@@ -71,8 +93,7 @@ void parse_block(struct compiler *compiler);
 void defvar(struct compiler *compiler, struct value name);
 void setvar(struct compiler *compiler, struct value name);
 void getvar(struct compiler *compiler, struct value name);
-
-static inline bool left_associative(struct token token);
+static void eval(struct compiler *, struct detail);
 
 void scope_init(struct scope *scope)
 {
@@ -260,8 +281,9 @@ void compile(char *src, struct chunk *chunk)
 //
 // whileStmt      → "while" "(" expression ")" statement;
 //
-// forStmt        → "for" "(" (varDecl | exprStmt | ";") expression? ";"
-// expression? ")" statement ;
+// forStmt        →
+//   "for" "(" (varDecl | exprStmt | ";") expression? ";" expression? ")"
+//   statement ;
 //
 // returnStmt     → "return" expression? ";" ;
 //
@@ -311,6 +333,18 @@ void getvar(struct compiler *compiler, struct value name)
   emit_bytes(compiler, OP_GET_GLOBAL, constant);
 }
 
+static void eval(struct compiler *c, struct detail detail)
+{
+  if (detail.arity == 0) {
+    return;
+  }
+  if (detail.id == TK_IDENT) {
+    getvar(c, detail.first);
+  } else {
+    emit_constant(c, detail.first);
+  }
+}
+
 void parse_var_decl(struct compiler *compiler)
 {
   consume(compiler, TK_IDENT);
@@ -319,7 +353,7 @@ void parse_var_decl(struct compiler *compiler)
       = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
 
   if (match(compiler, TK_EQUAL)) {
-    parse_expr(compiler, BP_NONE);
+    eval(compiler, expression(compiler, BP_NONE));
   } else {
     emit_constant(compiler, value_make_nil());
   }
@@ -341,14 +375,14 @@ void parse_stmt(struct compiler *compiler)
 
 void parse_expr_stmt(struct compiler *compiler)
 {
-  parse_expr(compiler, BP_NONE);
+  eval(compiler, expression(compiler, BP_NONE));
   consume(compiler, TK_SEMICOLON);
   emit_byte(compiler, OP_POP);
 }
 
 void parse_print_stmt(struct compiler *compiler)
 {
-  parse_expr(compiler, BP_NONE);
+  eval(compiler, expression(compiler, BP_NONE));
   consume(compiler, TK_SEMICOLON);
   emit_byte(compiler, OP_PRINT);
 }
@@ -374,39 +408,39 @@ struct symbol {
 
 struct symbol symbols[TK_MAX + 1] = {
   // literals
-  [TK_NIL] = { parse_literal, NULL, BP_NONE, true },
-  [TK_TRUE] = { parse_literal, NULL, BP_NONE, true },
-  [TK_FALSE] = { parse_literal, NULL, BP_NONE, true },
-  [TK_NUMBER] = { parse_literal, NULL, BP_NONE, true },
-  [TK_IDENT] = { parse_variable, NULL, BP_NONE, true },
-  [TK_STRING] = { parse_literal, NULL, BP_NONE, true },
+  [TK_NIL] = { literal, NULL, BP_NONE, true },
+  [TK_TRUE] = { literal, NULL, BP_NONE, true },
+  [TK_FALSE] = { literal, NULL, BP_NONE, true },
+  [TK_NUMBER] = { literal, NULL, BP_NONE, true },
+  [TK_IDENT] = { variable, NULL, BP_NONE, true },
+  [TK_STRING] = { literal, NULL, BP_NONE, true },
 
   // operators
-  [TK_BANG] = { parse_not, NULL, BP_NONE, true },
+  [TK_BANG] = { not, NULL, BP_NONE, true },
 
   // '-' has nud and led
-  [TK_MINUS] = { parse_negative, parse_binary_op, BP_TERM, true },
-  [TK_PLUS] = { NULL, parse_binary_op, BP_TERM, true },
+  [TK_MINUS] = { negative, infix, BP_TERM, true },
+  [TK_PLUS] = { NULL, infix, BP_TERM, true },
 
-  [TK_SLASH] = { NULL, parse_binary_op, BP_FACTOR, true },
-  [TK_STAR] = { NULL, parse_binary_op, BP_FACTOR, true },
+  [TK_SLASH] = { NULL, infix, BP_FACTOR, true },
+  [TK_STAR] = { NULL, infix, BP_FACTOR, true },
 
-  [TK_BANG_EQUAL] = { NULL, parse_binary_op, BP_EQUALITY, true },
-  [TK_EQUAL_EQUAL] = { NULL, parse_binary_op, BP_EQUALITY, true },
+  [TK_BANG_EQUAL] = { NULL, infix, BP_EQUALITY, true },
+  [TK_EQUAL_EQUAL] = { NULL, infix, BP_EQUALITY, true },
 
-  [TK_GREATER] = { NULL, parse_binary_op, BP_COMPARISON, true },
-  [TK_GREATER_EQUAL] = { NULL, parse_binary_op, BP_COMPARISON, true },
-  [TK_LESS] = { NULL, parse_binary_op, BP_COMPARISON, true },
-  [TK_LESS_EQUAL] = { NULL, parse_binary_op, BP_COMPARISON, true },
+  [TK_GREATER] = { NULL, infix, BP_COMPARISON, true },
+  [TK_GREATER_EQUAL] = { NULL, infix, BP_COMPARISON, true },
+  [TK_LESS] = { NULL, infix, BP_COMPARISON, true },
+  [TK_LESS_EQUAL] = { NULL, infix, BP_COMPARISON, true },
 
-  [TK_AND] = { NULL, parse_binary_op, BP_AND, true },
-  [TK_OR] = { NULL, parse_binary_op, BP_OR, true },
+  [TK_AND] = { NULL, infix, BP_AND, true },
+  [TK_OR] = { NULL, infix, BP_OR, true },
 
   // '=' is right-associative
-  [TK_EQUAL] = { NULL, parse_binary_op, BP_ASSIGNMENT, false },
+  [TK_EQUAL] = { NULL, assignment, BP_ASSIGNMENT, false },
 
   // '(' has nud
-  [TK_LEFT_PAREN] = { parse_group, NULL, BP_NONE, true },
+  [TK_LEFT_PAREN] = { group, NULL, BP_NONE, true },
 
   // others
   [TK_RIGHT_PAREN] = { NULL, NULL, BP_NONE, true },
@@ -430,28 +464,49 @@ struct symbol symbols[TK_MAX + 1] = {
   [TK_SUPER] = { NULL, NULL, BP_NONE, true },
 };
 
-void parse_expr(struct compiler *compiler, binding_power bp)
+static struct detail empty_detail(token_t id)
+{
+  struct detail detail = {
+    .arity = 0,
+    .id = id,
+  };
+  return detail;
+}
+
+static struct detail unary_detail(token_t id, struct value first)
+{
+  struct detail detail = {
+    .arity = 1,
+    .id = id,
+    .first = first,
+  };
+  return detail;
+}
+
+struct detail expression(struct compiler *compiler, binding_power bp)
 {
   nud_func nud = token_nud(forward(compiler));
+  struct detail left;
   if (nud) {
-    nud(compiler);
+    left = nud(compiler);
   }
   while (bp < token_bp(peek(compiler))) {
     led_func led = token_led(forward(compiler));
     assert(led);
-    led(compiler);
+    left = led(compiler, left);
   }
+  return left;
 }
 
 nud_func token_nud(struct token token) { return symbols[token.type].nud; }
 led_func token_led(struct token token) { return symbols[token.type].led; }
 binding_power token_bp(struct token token) { return symbols[token.type].bp; }
 
-void parse_literal(struct compiler *compiler)
+struct detail literal(struct compiler *compiler)
 {
   struct value v;
-  struct token token = prev(compiler);
-  switch (token_type(&token)) {
+  struct token tk = prev(compiler);
+  switch (tk.type) {
   case TK_NIL:
     v = value_make_nil();
     break;
@@ -462,50 +517,59 @@ void parse_literal(struct compiler *compiler)
     v = value_make_bool(true);
     break;
   case TK_NUMBER:
-    v = value_make_number(strtod(token_lexem_start(&token), NULL));
+    v = value_make_number(strtod(token_lexem_start(&tk), NULL));
     break;
   case TK_STRING:
-    v = value_make_string(token_lexem_start(&token) + 1,
-                          token_lexem_len(&token) - 2);
+    v = value_make_string(token_lexem_start(&tk) + 1, token_lexem_len(&tk) - 2);
     break;
   }
-  emit_constant(compiler, v);
+  return unary_detail(tk.type, v);
 }
 
-void parse_variable(struct compiler *compiler)
+struct detail variable(struct compiler *compiler)
 {
-  struct token token = prev(compiler);
+  struct token tk = prev(compiler);
   struct value name
-      = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
-
-  if (match(compiler, TK_EQUAL)) {
-    parse_expr(compiler, BP_NONE);
-    setvar(compiler, name);
-  } else {
-    getvar(compiler, name);
-  }
+      = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
+  return unary_detail(tk.type, name);
 }
 
-void parse_negative(struct compiler *compiler)
+struct detail negative(struct compiler *compiler)
 {
-  // TODO: Is it right to use BP_UNARY ?
-  parse_expr(compiler, BP_UNARY);
+  struct detail right = expression(compiler, BP_UNARY);
+  eval(compiler, right);
   emit_byte(compiler, OP_NEGATIVE);
+  return empty_detail(TK_MINUS);
 }
 
-void parse_not(struct compiler *compiler)
+struct detail not(struct compiler * compiler)
 {
-  parse_expr(compiler, BP_UNARY);
+  struct detail right = expression(compiler, BP_UNARY);
+  eval(compiler, right);
   emit_byte(compiler, OP_NOT);
+  return empty_detail(TK_BANG);
 }
 
-void parse_group(struct compiler *compiler)
+struct detail group(struct compiler *compiler)
 {
-  parse_expr(compiler, BP_NONE);
+  struct detail grouped = expression(compiler, BP_NONE);
   consume(compiler, TK_RIGHT_PAREN);
+  return grouped;
 }
 
-op_code binary_opcode_from_token(struct token token)
+struct detail assignment(struct compiler *c, struct detail left)
+{
+  if (left.id != TK_IDENT) {
+    panic("Invalid assignment.");
+  }
+  struct token tk = prev(c);
+  struct detail right = expression(c, token_bp(tk) - 1);
+  eval(c, right);
+  setvar(c, left.first);
+  return empty_detail(tk.type);
+}
+
+op_code infix_opcode(struct token token)
 {
   switch (token_type(&token)) {
   case TK_PLUS:
@@ -532,27 +596,17 @@ op_code binary_opcode_from_token(struct token token)
     return OP_AND;
   case TK_OR:
     return OP_OR;
-  case TK_EQUAL:
-    return OP_SET_GLOBAL;
   default:
     return OP_NONE;
   }
 }
 
-static inline bool left_associative(struct token token)
+struct detail infix(struct compiler *compiler, struct detail left)
 {
-  return symbols[token.type].left_associative;
-}
-
-void parse_binary_op(struct compiler *compiler)
-{
-  struct token token = prev(compiler);
-
-  if (left_associative(token)) {
-    parse_expr(compiler, token_bp(token));
-  } else {
-    parse_expr(compiler, token_bp(token) - 1);
-  }
-
-  emit_byte(compiler, binary_opcode_from_token(token));
+  eval(compiler, left);
+  struct token tk = prev(compiler);
+  struct detail right = expression(compiler, token_bp(tk));
+  eval(compiler, right);
+  emit_byte(compiler, infix_opcode(tk));
+  return empty_detail(tk.type);
 }

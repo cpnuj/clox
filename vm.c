@@ -85,7 +85,9 @@ void vm_errorf(struct vm *vm, char *format, ...)
   vm->error = 1;
   va_list ap;
   va_start(ap, format);
-  vsprintf(vm->errmsg, format, ap);
+  int printed = vsprintf(vm->errmsg, format, ap);
+  sprintf(vm->errmsg + printed, "\n[line %d] in script",
+          vm->chunk.lines[vm->pc]);
 }
 
 // fetch_code fetch and return the next code from vm chunk.
@@ -305,7 +307,7 @@ void op_set_global(struct vm *vm)
     return;
   }
   if (!map_get(globals(vm), name, NULL)) {
-    vm_errorf(vm, "unknown variable %s", value_as_string(name)->str);
+    vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
     return;
   }
 
@@ -324,7 +326,7 @@ void op_get_global(struct vm *vm)
   }
 
   if (!map_get(globals(vm), name, &value)) {
-    vm_errorf(vm, "unknown variable %s", value_as_string(name)->str);
+    vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
     return;
   }
   vm_push(vm, value);

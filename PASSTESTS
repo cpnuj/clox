@@ -14,7 +14,9 @@
 ./test/operator/add.lox
 ./test/number/nan_equality.lox
 ./test/number/literals.lox
+./test/variable/undefined_global.lox
 ./test/variable/in_middle_of_block.lox
+./test/variable/undefined_local.lox
 ./test/variable/redeclare_global.lox
 ./test/variable/redefine_global.lox
 ./test/variable/in_nested_block.lox
@@ -24,6 +26,7 @@
 ./test/variable/uninitialized.lox
 ./test/variable/use_global_in_initializer.lox
 ./test/assignment/syntax.lox
+./test/assignment/undefined.lox
 ./test/assignment/associativity.lox
 ./test/assignment/local.lox
 ./test/assignment/global.lox
@@ -33,4 +36,4 @@
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
 ./test/block/scope.lox
-=== Total: 265 Passed: 35 Pass Rate: 13.21%
+=== Total: 265 Passed: 38 Pass Rate: 14.34%
