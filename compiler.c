@@ -73,26 +73,26 @@ nud_func token_nud(struct token token);
 led_func token_led(struct token token);
 binding_power token_bp(struct token token);
 
-struct detail expression(struct compiler *compiler, binding_power bp);
-struct detail literal(struct compiler *compiler);
-struct detail variable(struct compiler *compiler);
-struct detail negative(struct compiler *compiler);
-struct detail not(struct compiler * compiler);
-struct detail group(struct compiler *compiler);
+struct detail expression(struct compiler *c, binding_power bp);
+struct detail literal(struct compiler *c);
+struct detail variable(struct compiler *c);
+struct detail negative(struct compiler *c);
+struct detail not(struct compiler * c);
+struct detail group(struct compiler *c);
 struct detail assignment(struct compiler *c, struct detail left);
-struct detail infix(struct compiler *compiler, struct detail);
+struct detail infix(struct compiler *c, struct detail);
 op_code infix_opcode(struct token token);
 
-void parse_decl(struct compiler *compiler);
-void parse_var_decl(struct compiler *compiler);
-void parse_stmt(struct compiler *compiler);
-void parse_expr_stmt(struct compiler *compiler);
-void parse_print_stmt(struct compiler *compiler);
-void parse_block(struct compiler *compiler);
+void declaration(struct compiler *c);
+void var_declaration(struct compiler *c);
+void statement(struct compiler *c);
+void expr_stmt(struct compiler *c);
+void print_stmt(struct compiler *c);
+void block_stmt(struct compiler *c);
 
-void defvar(struct compiler *compiler, struct value name);
-void setvar(struct compiler *compiler, struct value name);
-void getvar(struct compiler *compiler, struct value name);
+void defvar(struct compiler *c, struct value name);
+void setvar(struct compiler *c, struct value name);
+void getvar(struct compiler *c, struct value name);
 static void eval(struct compiler *, struct detail);
 
 void scope_init(struct scope *scope)
@@ -147,91 +147,85 @@ void scope_debug(struct scope *scope)
 // is_global returns true if the scope is in global env.
 bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
 
-void compiler_init(struct compiler *compiler, char *src)
+void compiler_init(struct compiler *c, char *src)
 {
-  lex_init(&compiler->lexer, src, strlen(src));
-  scope_init(&compiler->scope);
-  map_init(&compiler->mconstants);
+  lex_init(&c->lexer, src, strlen(src));
+  scope_init(&c->scope);
+  map_init(&c->mconstants);
   // initial forward
-  forward(compiler);
+  forward(c);
 }
 
-void compiler_set_chunk(struct compiler *compiler, struct chunk *chunk)
+void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
 {
-  compiler->chunk = chunk;
+  c->chunk = chunk;
 }
 
-static void emit_byte(struct compiler *compiler, uint8_t byte)
+static void emit_byte(struct compiler *c, uint8_t byte)
 {
-  chunk_write(compiler->chunk, byte, compiler->prev.line);
+  chunk_write(c->chunk, byte, c->prev.line);
 }
 
-static void emit_bytes(struct compiler *compiler, uint8_t b1, uint8_t b2)
+static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
 {
-  emit_byte(compiler, b1);
-  emit_byte(compiler, b2);
+  emit_byte(c, b1);
+  emit_byte(c, b2);
 }
 
-static void emit_constant(struct compiler *compiler, struct value value)
+static void emit_constant(struct compiler *c, struct value value)
 {
-  emit_bytes(compiler, OP_CONSTANT, make_constant(compiler, value));
+  emit_bytes(c, OP_CONSTANT, make_constant(c, value));
 }
 
-static void emit_return(struct compiler *compiler)
-{
-  emit_byte(compiler, OP_RETURN);
-}
+static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
 
 // make_constant returns the idx of constant value. If the value has been
 // created, return its idx. Else, add new constant to compiling chunk.
-static uint8_t make_constant(struct compiler *compiler, struct value value)
+static uint8_t make_constant(struct compiler *c, struct value value)
 {
 #define value_as_int(value) ((int)value_as_number(value))
   struct value vidx;
-  if (map_get(&compiler->mconstants, value, &vidx)) {
+  if (map_get(&c->mconstants, value, &vidx)) {
     return (uint8_t)value_as_int(vidx);
   }
-  int constant = chunk_add_constant(compiler->chunk, value);
+  int constant = chunk_add_constant(c->chunk, value);
   if (constant > UINT8_MAX) {
     // FIXME: add error
     return 0;
   }
   vidx = value_make_number((double)constant);
-  map_put(&compiler->mconstants, value, vidx);
+  map_put(&c->mconstants, value, vidx);
   return (uint8_t)constant;
 }
 
-struct token peek(struct compiler *compiler) { return compiler->curr; }
+struct token peek(struct compiler *c) { return c->curr; }
 
-struct token prev(struct compiler *compiler) { return compiler->prev; }
+struct token prev(struct compiler *c) { return c->prev; }
 
-struct token forward(struct compiler *compiler)
+struct token forward(struct compiler *c)
 {
-  compiler->prev = compiler->curr;
-  compiler->curr = lex(&compiler->lexer);
-  return compiler->prev;
+  c->prev = c->curr;
+  c->curr = lex(&c->lexer);
+  return c->prev;
 }
 
-struct token consume(struct compiler *compiler, token_t type)
+struct token consume(struct compiler *c, token_t type)
 {
-  struct token token = peek(compiler);
+  struct token token = peek(c);
   // FIXME: Replace assert with error handling
   if (token_type(&token) != type) {
     printf("expect %d but got %d", type, token.type);
     panic("");
   }
-  return forward(compiler);
+  return forward(c);
 }
 
-bool check(struct compiler *compiler, token_t type)
-{
-  return peek(compiler).type == type;
-}
+bool check(struct compiler *c, token_t type) { return peek(c).type == type; }
 
-bool match(struct compiler *compiler, token_t type)
+bool match(struct compiler *c, token_t type)
 {
-  if (check(compiler, type)) {
-    forward(compiler);
+  if (check(c, type)) {
+    forward(c);
     return true;
   }
   return false;
@@ -239,15 +233,15 @@ bool match(struct compiler *compiler, token_t type)
 
 void compile(char *src, struct chunk *chunk)
 {
-  struct compiler compiler;
-  compiler_init(&compiler, src);
-  compiler_set_chunk(&compiler, chunk);
+  struct compiler c;
+  compiler_init(&c, src);
+  compiler_set_chunk(&c, chunk);
 
-  while (!match(&compiler, TK_EOF)) {
-    parse_decl(&compiler);
+  while (!match(&c, TK_EOF)) {
+    declaration(&c);
   }
 
-  emit_byte(&compiler, OP_RETURN);
+  emit_byte(&c, OP_RETURN);
 }
 
 // CFG for program: [0/0]// program        → declaration* EOF ;
@@ -289,48 +283,48 @@ void compile(char *src, struct chunk *chunk)
 //
 // classStmt      → "class" IDENTIFIER "{" function* "}" ;
 
-void parse_decl(struct compiler *compiler)
+void declaration(struct compiler *c)
 {
-  if (match(compiler, TK_VAR)) {
-    parse_var_decl(compiler);
+  if (match(c, TK_VAR)) {
+    var_declaration(c);
   } else {
-    parse_stmt(compiler);
+    statement(c);
   }
 }
 
-void defvar(struct compiler *compiler, struct value name)
+void defvar(struct compiler *c, struct value name)
 {
-  if (is_global(&compiler->scope)) {
-    uint8_t constant = make_constant(compiler, name);
-    emit_bytes(compiler, OP_GLOBAL, constant);
+  if (is_global(&c->scope)) {
+    uint8_t constant = make_constant(c, name);
+    emit_bytes(c, OP_GLOBAL, constant);
   } else {
-    scope_add(&compiler->scope, name);
+    scope_add(&c->scope, name);
   }
 }
 
 // TODO: setvar and getvar have similar structure, consider refactor
-void setvar(struct compiler *compiler, struct value name)
+void setvar(struct compiler *c, struct value name)
 {
-  int idx = scope_find(&compiler->scope, name);
+  int idx = scope_find(&c->scope, name);
   if (idx >= 0) {
-    emit_bytes(compiler, OP_SET_LOCAL, (uint8_t)idx);
+    emit_bytes(c, OP_SET_LOCAL, (uint8_t)idx);
     return;
   }
   // find in globals
-  uint8_t constant = make_constant(compiler, name);
-  emit_bytes(compiler, OP_SET_GLOBAL, constant);
+  uint8_t constant = make_constant(c, name);
+  emit_bytes(c, OP_SET_GLOBAL, constant);
 }
 
-void getvar(struct compiler *compiler, struct value name)
+void getvar(struct compiler *c, struct value name)
 {
-  int idx = scope_find(&compiler->scope, name);
+  int idx = scope_find(&c->scope, name);
   if (idx >= 0) {
-    emit_bytes(compiler, OP_GET_LOCAL, (uint8_t)idx);
+    emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
     return;
   }
   // find in globals
-  uint8_t constant = make_constant(compiler, name);
-  emit_bytes(compiler, OP_GET_GLOBAL, constant);
+  uint8_t constant = make_constant(c, name);
+  emit_bytes(c, OP_GET_GLOBAL, constant);
 }
 
 static void eval(struct compiler *c, struct detail detail)
@@ -345,56 +339,56 @@ static void eval(struct compiler *c, struct detail detail)
   }
 }
 
-void parse_var_decl(struct compiler *compiler)
+void var_declaration(struct compiler *c)
 {
-  consume(compiler, TK_IDENT);
-  struct token token = prev(compiler);
+  consume(c, TK_IDENT);
+  struct token token = prev(c);
   struct value name
       = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
 
-  if (match(compiler, TK_EQUAL)) {
-    eval(compiler, expression(compiler, BP_NONE));
+  if (match(c, TK_EQUAL)) {
+    eval(c, expression(c, BP_NONE));
   } else {
-    emit_constant(compiler, value_make_nil());
+    emit_constant(c, value_make_nil());
   }
 
-  consume(compiler, TK_SEMICOLON);
-  defvar(compiler, name);
+  consume(c, TK_SEMICOLON);
+  defvar(c, name);
 }
 
-void parse_stmt(struct compiler *compiler)
+void statement(struct compiler *c)
 {
-  if (match(compiler, TK_PRINT)) {
-    return parse_print_stmt(compiler);
-  } else if (match(compiler, TK_LEFT_BRACE)) {
-    return parse_block(compiler);
+  if (match(c, TK_PRINT)) {
+    return print_stmt(c);
+  } else if (match(c, TK_LEFT_BRACE)) {
+    return block_stmt(c);
   } else {
-    return parse_expr_stmt(compiler);
+    return expr_stmt(c);
   }
 }
 
-void parse_expr_stmt(struct compiler *compiler)
+void expr_stmt(struct compiler *c)
 {
-  eval(compiler, expression(compiler, BP_NONE));
-  consume(compiler, TK_SEMICOLON);
-  emit_byte(compiler, OP_POP);
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_SEMICOLON);
+  emit_byte(c, OP_POP);
 }
 
-void parse_print_stmt(struct compiler *compiler)
+void print_stmt(struct compiler *c)
 {
-  eval(compiler, expression(compiler, BP_NONE));
-  consume(compiler, TK_SEMICOLON);
-  emit_byte(compiler, OP_PRINT);
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_SEMICOLON);
+  emit_byte(c, OP_PRINT);
 }
 
-void parse_block(struct compiler *compiler)
+void block_stmt(struct compiler *c)
 {
-  scope_in(&compiler->scope);
-  while (!check(compiler, TK_RIGHT_BRACE) && !check(compiler, TK_EOF)) {
-    parse_decl(compiler);
+  scope_in(&c->scope);
+  while (!check(c, TK_RIGHT_BRACE) && !check(c, TK_EOF)) {
+    declaration(c);
   }
-  consume(compiler, TK_RIGHT_BRACE);
-  scope_out(&compiler->scope);
+  consume(c, TK_RIGHT_BRACE);
+  scope_out(&c->scope);
 }
 
 // Pratt parsing algorithm
@@ -483,17 +477,17 @@ static struct detail unary_detail(token_t id, struct value first)
   return detail;
 }
 
-struct detail expression(struct compiler *compiler, binding_power bp)
+struct detail expression(struct compiler *c, binding_power bp)
 {
-  nud_func nud = token_nud(forward(compiler));
+  nud_func nud = token_nud(forward(c));
   struct detail left;
   if (nud) {
-    left = nud(compiler);
+    left = nud(c);
   }
-  while (bp < token_bp(peek(compiler))) {
-    led_func led = token_led(forward(compiler));
+  while (bp < token_bp(peek(c))) {
+    led_func led = token_led(forward(c));
     assert(led);
-    left = led(compiler, left);
+    left = led(c, left);
   }
   return left;
 }
@@ -502,10 +496,10 @@ nud_func token_nud(struct token token) { return symbols[token.type].nud; }
 led_func token_led(struct token token) { return symbols[token.type].led; }
 binding_power token_bp(struct token token) { return symbols[token.type].bp; }
 
-struct detail literal(struct compiler *compiler)
+struct detail literal(struct compiler *c)
 {
   struct value v;
-  struct token tk = prev(compiler);
+  struct token tk = prev(c);
   switch (tk.type) {
   case TK_NIL:
     v = value_make_nil();
@@ -526,34 +520,34 @@ struct detail literal(struct compiler *compiler)
   return unary_detail(tk.type, v);
 }
 
-struct detail variable(struct compiler *compiler)
+struct detail variable(struct compiler *c)
 {
-  struct token tk = prev(compiler);
+  struct token tk = prev(c);
   struct value name
       = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
   return unary_detail(tk.type, name);
 }
 
-struct detail negative(struct compiler *compiler)
+struct detail negative(struct compiler *c)
 {
-  struct detail right = expression(compiler, BP_UNARY);
-  eval(compiler, right);
-  emit_byte(compiler, OP_NEGATIVE);
+  struct detail right = expression(c, BP_UNARY);
+  eval(c, right);
+  emit_byte(c, OP_NEGATIVE);
   return empty_detail(TK_MINUS);
 }
 
-struct detail not(struct compiler * compiler)
+struct detail not(struct compiler * c)
 {
-  struct detail right = expression(compiler, BP_UNARY);
-  eval(compiler, right);
-  emit_byte(compiler, OP_NOT);
+  struct detail right = expression(c, BP_UNARY);
+  eval(c, right);
+  emit_byte(c, OP_NOT);
   return empty_detail(TK_BANG);
 }
 
-struct detail group(struct compiler *compiler)
+struct detail group(struct compiler *c)
 {
-  struct detail grouped = expression(compiler, BP_NONE);
-  consume(compiler, TK_RIGHT_PAREN);
+  struct detail grouped = expression(c, BP_NONE);
+  consume(c, TK_RIGHT_PAREN);
   return grouped;
 }
 
@@ -601,12 +595,12 @@ op_code infix_opcode(struct token token)
   }
 }
 
-struct detail infix(struct compiler *compiler, struct detail left)
+struct detail infix(struct compiler *c, struct detail left)
 {
-  eval(compiler, left);
-  struct token tk = prev(compiler);
-  struct detail right = expression(compiler, token_bp(tk));
-  eval(compiler, right);
-  emit_byte(compiler, infix_opcode(tk));
+  eval(c, left);
+  struct token tk = prev(c);
+  struct detail right = expression(c, token_bp(tk));
+  eval(c, right);
+  emit_byte(c, infix_opcode(tk));
   return empty_detail(tk.type);
 }
