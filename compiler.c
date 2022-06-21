@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,8 @@ bool is_global(struct scope *);
 
 void compiler_init(struct compiler *, char *);
 void compiler_set_chunk(struct compiler *, struct chunk *);
+static void error_at(struct compiler *, struct token, char *);
+static void errorf(struct compiler *, char *, ...);
 
 static void emit_byte(struct compiler *, uint8_t);
 static void emit_bytes(struct compiler *, uint8_t, uint8_t);
@@ -29,7 +32,7 @@ static uint8_t make_constant(struct compiler *, struct value);
 struct token peek(struct compiler *);
 struct token prev(struct compiler *);
 struct token forward(struct compiler *);
-struct token consume(struct compiler *, token_t);
+struct token consume(struct compiler *, token_t, char *);
 bool check(struct compiler *, token_t);
 bool match(struct compiler *, token_t);
 
@@ -149,9 +152,12 @@ bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
 
 void compiler_init(struct compiler *c, char *src)
 {
+  c->error = 0;
+
   lex_init(&c->lexer, src, strlen(src));
   scope_init(&c->scope);
   map_init(&c->mconstants);
+
   // initial forward
   forward(c);
 }
@@ -159,6 +165,30 @@ void compiler_init(struct compiler *c, char *src)
 void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
 {
   c->chunk = chunk;
+}
+
+static void error_at(struct compiler *c, struct token tk, char *msg)
+{
+  fprintf(stderr, "[line %d] Error", tk.line);
+
+  if (tk.type == TK_EOF) {
+    fprintf(stderr, " at end");
+  } else if (tk.type == TK_ERR) {
+    // Nothing.
+  } else {
+    fprintf(stderr, " at '%.*s'", tk.len, tk.at);
+  }
+
+  fprintf(stderr, ": %s\n", msg);
+  c->error = 1;
+}
+
+static void errorf(struct compiler *c, char *fmt, ...)
+{
+  c->error = 1;
+  va_list ap;
+  va_start(ap, fmt);
+  vsprintf(c->errmsg, fmt, ap);
 }
 
 static void emit_byte(struct compiler *c, uint8_t byte)
@@ -209,15 +239,13 @@ struct token forward(struct compiler *c)
   return c->prev;
 }
 
-struct token consume(struct compiler *c, token_t type)
+struct token consume(struct compiler *c, token_t type, char *msg)
 {
-  struct token token = peek(c);
-  // FIXME: Replace assert with error handling
-  if (token_type(&token) != type) {
-    printf("expect %d but got %d", type, token.type);
-    panic("");
+  struct token tk = peek(c);
+  if (tk.type == type) {
+    return forward(c);
   }
-  return forward(c);
+  error_at(c, tk, msg);
 }
 
 bool check(struct compiler *c, token_t type) { return peek(c).type == type; }
@@ -231,7 +259,7 @@ bool match(struct compiler *c, token_t type)
   return false;
 }
 
-void compile(char *src, struct chunk *chunk)
+int compile(char *src, struct chunk *chunk)
 {
   struct compiler c;
   compiler_init(&c, src);
@@ -242,6 +270,7 @@ void compile(char *src, struct chunk *chunk)
   }
 
   emit_byte(&c, OP_RETURN);
+  return c.error;
 }
 
 // CFG for program: [0/0]// program        → declaration* EOF ;
@@ -341,7 +370,7 @@ static void eval(struct compiler *c, struct detail detail)
 
 void var_declaration(struct compiler *c)
 {
-  consume(c, TK_IDENT);
+  consume(c, TK_IDENT, "Expect variable name.");
   struct token token = prev(c);
   struct value name
       = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
@@ -352,7 +381,7 @@ void var_declaration(struct compiler *c)
     emit_constant(c, value_make_nil());
   }
 
-  consume(c, TK_SEMICOLON);
+  consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
   defvar(c, name);
 }
 
@@ -370,14 +399,14 @@ void statement(struct compiler *c)
 void expr_stmt(struct compiler *c)
 {
   eval(c, expression(c, BP_NONE));
-  consume(c, TK_SEMICOLON);
+  consume(c, TK_SEMICOLON, "Expect ';' after expression declaration.");
   emit_byte(c, OP_POP);
 }
 
 void print_stmt(struct compiler *c)
 {
   eval(c, expression(c, BP_NONE));
-  consume(c, TK_SEMICOLON);
+  consume(c, TK_SEMICOLON, "Expect ';' after print declaration.");
   emit_byte(c, OP_PRINT);
 }
 
@@ -387,7 +416,7 @@ void block_stmt(struct compiler *c)
   while (!check(c, TK_RIGHT_BRACE) && !check(c, TK_EOF)) {
     declaration(c);
   }
-  consume(c, TK_RIGHT_BRACE);
+  consume(c, TK_RIGHT_BRACE, "Expect '}' after block.");
   scope_out(&c->scope);
 }
 
@@ -547,14 +576,15 @@ struct detail not(struct compiler * c)
 struct detail group(struct compiler *c)
 {
   struct detail grouped = expression(c, BP_NONE);
-  consume(c, TK_RIGHT_PAREN);
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after group.");
   return grouped;
 }
 
 struct detail assignment(struct compiler *c, struct detail left)
 {
   if (left.id != TK_IDENT) {
-    panic("Invalid assignment.");
+    errorf(c, "Error at '=': Invalid assignment target.");
+    return empty_detail(TK_ERR);
   }
   struct token tk = prev(c);
   struct detail right = expression(c, token_bp(tk) - 1);

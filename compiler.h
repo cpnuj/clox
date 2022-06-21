@@ -25,8 +25,11 @@ struct compiler {
   struct chunk *chunk; // Compiling chunk
   struct scope scope;
   struct map mconstants; // map from value to idx in the chunk's constant list
+
+  int error;
+  char errmsg[128];
 };
 
-void compile(char *src, struct chunk *chunk);
+int compile(char *src, struct chunk *chunk);
 
 #endif
