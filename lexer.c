@@ -83,7 +83,12 @@ int lexer_match(struct lexer *l, char c)
 void lexer_error(struct lexer *l, char *errmsg)
 {
   l->err = 1;
-  l->errmsg = errmsg;
+  if (lexer_end(l)) {
+    sprintf(l->errmsg, "[line %d] Error at end: %s", l->line, errmsg);
+  } else {
+    sprintf(l->errmsg, "[line %d] Error at '%c': %s", l->line, lexer_peek(l),
+            errmsg);
+  }
 }
 
 int iskeyword(char *s, int len) { return clox_keyword(s, len); }
@@ -113,6 +118,10 @@ token_t lex_number(struct lexer *l)
       }
       hasDot = 1;
       lexer_forward(l);
+      if (!isdigit(lexer_peek(l))) {
+        lexer_error(l, "Expect property name after '.'.");
+        return TK_ERR;
+      }
     } else {
       return TK_NUMBER;
     }

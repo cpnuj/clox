@@ -4,16 +4,40 @@
 ./test/bool/not.lox
 ./test/string/multiline.lox
 ./test/string/literals.lox
+./test/operator/less_num_nonnum.lox
+./test/operator/greater_num_nonnum.lox
+./test/operator/less_or_equal_num_nonnum.lox
+./test/operator/add_num_nil.lox
 ./test/operator/divide.lox
+./test/operator/greater_or_equal_num_nonnum.lox
 ./test/operator/equals.lox
+./test/operator/less_nonnum_num.lox
+./test/operator/add_bool_string.lox
+./test/operator/less_or_equal_nonnum_num.lox
 ./test/operator/not_equals.lox
+./test/operator/multiply_num_nonnum.lox
+./test/operator/add_nil_nil.lox
+./test/operator/greater_or_equal_nonnum_num.lox
 ./test/operator/subtract.lox
+./test/operator/subtract_num_nonnum.lox
 ./test/operator/comparison.lox
+./test/operator/divide_nonnum_num.lox
+./test/operator/divide_num_nonnum.lox
+./test/operator/add_bool_num.lox
+./test/operator/subtract_nonnum_num.lox
+./test/operator/negate_nonnum.lox
+./test/operator/multiply_nonnum_num.lox
 ./test/operator/multiply.lox
+./test/operator/greater_nonnum_num.lox
+./test/operator/add_string_nil.lox
 ./test/operator/negate.lox
+./test/operator/add_bool_nil.lox
 ./test/operator/add.lox
 ./test/number/nan_equality.lox
+./test/number/leading_dot.lox
+./test/number/decimal_point_at_eof.lox
 ./test/number/literals.lox
+./test/number/trailing_dot.lox
 ./test/variable/undefined_global.lox
 ./test/variable/in_middle_of_block.lox
 ./test/variable/undefined_local.lox
@@ -45,4 +69,5 @@
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
 ./test/block/scope.lox
-=== Total: 265 Passed: 47 Pass Rate: 17.74%
+./test/print/missing_argument.lox
+=== Total: 265 Passed: 72 Pass Rate: 27.17%

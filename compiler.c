@@ -204,17 +204,15 @@ static void error_at(struct compiler *c, struct token tk, char *msg)
 
   c->panic = 1;
 
-  fprintf(stderr, "[line %d] Error", tk.line);
-
   if (tk.type == TK_EOF) {
-    fprintf(stderr, " at end");
+    fprintf(stderr, "[line %d] Error at end: %s\n", tk.line, msg);
   } else if (tk.type == TK_ERR) {
-    // Nothing.
+    fprintf(stderr, "%s\n", msg);
   } else {
-    fprintf(stderr, " at '%.*s'", tk.len, tk.at);
+    fprintf(stderr, "[line %d] Error at '%.*s': %s\n", tk.line, tk.len, tk.at,
+            msg);
   }
 
-  fprintf(stderr, ": %s\n", msg);
   c->error = 1;
 }
 
@@ -271,6 +269,9 @@ struct token forward(struct compiler *c)
 {
   c->prev = c->curr;
   c->curr = lex(&c->lexer);
+  if (c->curr.type == TK_ERR) {
+    error_at(c, c->curr, c->lexer.errmsg);
+  }
   return c->prev;
 }
 
@@ -348,10 +349,10 @@ int compile(char *src, struct chunk *chunk)
   compiler_set_chunk(&c, chunk);
 
   while (!match(&c, TK_EOF)) {
-    declaration(&c);
     if (c.panic) {
       break;
     }
+    declaration(&c);
   }
 
   emit_byte(&c, OP_RETURN);
@@ -572,14 +573,19 @@ static struct detail unary_detail(token_t id, struct value first)
 
 struct detail expression(struct compiler *c, binding_power bp)
 {
-  nud_func nud = token_nud(forward(c));
   struct detail left;
-  if (nud) {
-    left = nud(c);
+  nud_func nud = token_nud(forward(c));
+  if (nud == NULL) {
+    errorf(c, "Expect expression.");
+    return empty_detail(TK_ERR);
   }
+  left = nud(c);
   while (bp < token_bp(peek(c))) {
     led_func led = token_led(forward(c));
-    assert(led);
+    if (led == NULL) {
+      errorf(c, "Expect expression.");
+      return empty_detail(TK_ERR);
+    }
     left = led(c, left);
   }
   return left;

@@ -86,8 +86,9 @@ void vm_errorf(struct vm *vm, char *format, ...)
   va_list ap;
   va_start(ap, format);
   int printed = vsprintf(vm->errmsg, format, ap);
+  int err_idx = vm->pc - 1;
   sprintf(vm->errmsg + printed, "\n[line %d] in script",
-          vm->chunk.lines[vm->pc]);
+          vm->chunk.lines[err_idx]);
 }
 
 // fetch_code fetch and return the next code from vm chunk.
@@ -163,7 +164,7 @@ void op_negative(struct vm *vm)
 {
   struct value value = vm_pop(vm);
   if (value.type != VT_NUM) {
-    vm_error(vm, "type error: need number type");
+    vm_errorf(vm, "Operand must be a number.");
     return;
   }
   double number = value_as_number(value);
@@ -201,13 +202,13 @@ void op_binary(struct vm *vm, uint8_t op)
   if (is_number(v1) && is_number(v2))                                          \
     v = value_make_number(value_as_number(v1) op value_as_number(v2));         \
   else                                                                         \
-    error = 1;
+    vm_errorf(vm, "Operands must be numbers.")
 
 #define op_comparison(op)                                                      \
   if (is_number(v1) && is_number(v2))                                          \
     v = value_make_bool(value_as_number(v1) op value_as_number(v2));           \
   else                                                                         \
-    error = 1;
+    vm_errorf(vm, "Operands must be numbers.")
 
 #define op_logic(op)                                                           \
   if (is_bool(v1) && is_bool(v2))                                              \
@@ -223,7 +224,7 @@ void op_binary(struct vm *vm, uint8_t op)
     else if (is_string(v1) && is_string(v2))
       v = concatenate(v1, v2);
     else
-      error = 1;
+      vm_errorf(vm, "Operands must be two numbers or two strings.");
     break;
 
   case OP_MINUS:
@@ -302,10 +303,6 @@ void op_set_global(struct vm *vm)
   struct value name = fetch_constant(vm);
   struct value value = vm_pop(vm);
 
-  if (!is_ident(name)) {
-    vm_error(vm, "cannot assign to a non-ident value");
-    return;
-  }
   if (!map_get(globals(vm), name, NULL)) {
     vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
     return;
@@ -319,11 +316,6 @@ void op_get_global(struct vm *vm)
 {
   struct value name = fetch_constant(vm);
   struct value value;
-
-  if (!is_ident(name)) {
-    vm_error(vm, "cannot assign to a non-ident value");
-    return;
-  }
 
   if (!map_get(globals(vm), name, &value)) {
     vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);

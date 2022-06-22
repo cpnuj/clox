@@ -43,7 +43,7 @@ struct lexer {
   char *src;
 
   int err;
-  char *errmsg;
+  char errmsg[128];
 };
 
 struct token {
