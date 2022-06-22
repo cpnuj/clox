@@ -38,8 +38,9 @@ void lexer_skip_whitespace(struct lexer *l)
     // comment
     case '/':
       if (lexer_peeknext(l) == '/') {
-        while (!lexer_end(l) && lexer_forward(l) != '\n') {
-        }
+        while (!lexer_end(l) && lexer_forward(l) != '\n')
+          ;
+        l->line++;
         break;
       } else {
         // single slash at peek, just return

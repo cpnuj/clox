@@ -11,9 +11,11 @@
 
 void scope_init(struct scope *);
 void scope_in(struct scope *);
-void scope_out(struct scope *);
+int scope_out(struct scope *);
 void scope_add(struct scope *, struct value);
-int scope_find(struct scope *, struct value);
+int scope_find(struct scope *, struct value, int);
+int scope_find_cur(struct scope *, struct value);
+int scope_find_all(struct scope *, struct value);
 void scope_debug(struct scope *);
 bool is_global(struct scope *);
 
@@ -106,16 +108,19 @@ void scope_init(struct scope *scope)
 
 void scope_in(struct scope *scope) { scope->cur_depth++; }
 
-void scope_out(struct scope *scope)
+int scope_out(struct scope *scope)
 {
   // pop all locals belonging to current depth
+  int poped = 0;
   while (scope->sp >= 0) {
     if (scope->locals[scope->sp].depth != scope->cur_depth) {
       break;
     }
     scope->sp--;
+    poped++;
   }
   scope->cur_depth--;
+  return poped;
 }
 
 void scope_add(struct scope *scope, struct value name)
@@ -125,7 +130,31 @@ void scope_add(struct scope *scope, struct value name)
   scope->locals[scope->sp].name = name;
 }
 
-int scope_find(struct scope *scope, struct value name)
+#define FIND_ALL 1
+#define FIND_CUR 2
+int scope_find(struct scope *scope, struct value name, int method)
+{
+  if (method == FIND_ALL) {
+    return scope_find_all(scope, name);
+  } else {
+    return scope_find_cur(scope, name);
+  }
+}
+
+int scope_find_cur(struct scope *scope, struct value name)
+{
+  for (int at = scope->sp; at >= 0; at--) {
+    if (scope->locals[at].depth != scope->cur_depth) {
+      return -1;
+    }
+    if (value_equal(scope->locals[at].name, name)) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+int scope_find_all(struct scope *scope, struct value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
     if (value_equal(scope->locals[at].name, name)) {
@@ -152,6 +181,7 @@ bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
 
 void compiler_init(struct compiler *c, char *src)
 {
+  c->panic = 0;
   c->error = 0;
 
   lex_init(&c->lexer, src, strlen(src));
@@ -169,6 +199,11 @@ void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
 
 static void error_at(struct compiler *c, struct token tk, char *msg)
 {
+  if (c->panic)
+    return;
+
+  c->panic = 1;
+
   fprintf(stderr, "[line %d] Error", tk.line);
 
   if (tk.type == TK_EOF) {
@@ -185,10 +220,10 @@ static void error_at(struct compiler *c, struct token tk, char *msg)
 
 static void errorf(struct compiler *c, char *fmt, ...)
 {
-  c->error = 1;
   va_list ap;
   va_start(ap, fmt);
   vsprintf(c->errmsg, fmt, ap);
+  error_at(c, prev(c), c->errmsg);
 }
 
 static void emit_byte(struct compiler *c, uint8_t byte)
@@ -259,6 +294,53 @@ bool match(struct compiler *c, token_t type)
   return false;
 }
 
+void defvar(struct compiler *c, struct value name)
+{
+  if (is_global(&c->scope)) {
+    uint8_t constant = make_constant(c, name);
+    emit_bytes(c, OP_GLOBAL, constant);
+  } else {
+    scope_add(&c->scope, name);
+  }
+}
+
+// TODO: setvar and getvar have similar structure, consider refactor
+void setvar(struct compiler *c, struct value name)
+{
+  int idx = scope_find_all(&c->scope, name);
+  if (idx >= 0) {
+    emit_bytes(c, OP_SET_LOCAL, (uint8_t)idx);
+    return;
+  }
+  // find in globals
+  uint8_t constant = make_constant(c, name);
+  emit_bytes(c, OP_SET_GLOBAL, constant);
+}
+
+void getvar(struct compiler *c, struct value name)
+{
+  int idx = scope_find(&c->scope, name, FIND_ALL);
+  if (idx >= 0) {
+    emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
+    return;
+  }
+  // find in globals
+  uint8_t constant = make_constant(c, name);
+  emit_bytes(c, OP_GET_GLOBAL, constant);
+}
+
+static void eval(struct compiler *c, struct detail detail)
+{
+  if (detail.arity == 0) {
+    return;
+  }
+  if (detail.id == TK_IDENT) {
+    getvar(c, detail.first);
+  } else {
+    emit_constant(c, detail.first);
+  }
+}
+
 int compile(char *src, struct chunk *chunk)
 {
   struct compiler c;
@@ -267,6 +349,9 @@ int compile(char *src, struct chunk *chunk)
 
   while (!match(&c, TK_EOF)) {
     declaration(&c);
+    if (c.panic) {
+      break;
+    }
   }
 
   emit_byte(&c, OP_RETURN);
@@ -321,53 +406,6 @@ void declaration(struct compiler *c)
   }
 }
 
-void defvar(struct compiler *c, struct value name)
-{
-  if (is_global(&c->scope)) {
-    uint8_t constant = make_constant(c, name);
-    emit_bytes(c, OP_GLOBAL, constant);
-  } else {
-    scope_add(&c->scope, name);
-  }
-}
-
-// TODO: setvar and getvar have similar structure, consider refactor
-void setvar(struct compiler *c, struct value name)
-{
-  int idx = scope_find(&c->scope, name);
-  if (idx >= 0) {
-    emit_bytes(c, OP_SET_LOCAL, (uint8_t)idx);
-    return;
-  }
-  // find in globals
-  uint8_t constant = make_constant(c, name);
-  emit_bytes(c, OP_SET_GLOBAL, constant);
-}
-
-void getvar(struct compiler *c, struct value name)
-{
-  int idx = scope_find(&c->scope, name);
-  if (idx >= 0) {
-    emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
-    return;
-  }
-  // find in globals
-  uint8_t constant = make_constant(c, name);
-  emit_bytes(c, OP_GET_GLOBAL, constant);
-}
-
-static void eval(struct compiler *c, struct detail detail)
-{
-  if (detail.arity == 0) {
-    return;
-  }
-  if (detail.id == TK_IDENT) {
-    getvar(c, detail.first);
-  } else {
-    emit_constant(c, detail.first);
-  }
-}
-
 void var_declaration(struct compiler *c)
 {
   consume(c, TK_IDENT, "Expect variable name.");
@@ -375,14 +413,31 @@ void var_declaration(struct compiler *c)
   struct value name
       = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
 
+  if (scope_find(&c->scope, name, FIND_CUR) != -1) {
+    errorf(c, "Already a variable with this name in this scope.");
+    return;
+  }
+
   if (match(c, TK_EQUAL)) {
-    eval(c, expression(c, BP_NONE));
+    struct detail initializer = expression(c, BP_NONE);
+
+    bool in_local = !is_global(&c->scope);
+    bool is_own_initializer
+        = initializer.id == TK_IDENT && value_equal(initializer.first, name);
+
+    if (in_local && is_own_initializer) {
+      errorf(c, "Can't read local variable in its own initializer.");
+      return;
+    }
+
+    eval(c, initializer);
   } else {
     emit_constant(c, value_make_nil());
   }
 
-  consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
   defvar(c, name);
+
+  consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
 }
 
 void statement(struct compiler *c)
@@ -413,11 +468,20 @@ void print_stmt(struct compiler *c)
 void block_stmt(struct compiler *c)
 {
   scope_in(&c->scope);
+
   while (!check(c, TK_RIGHT_BRACE) && !check(c, TK_EOF)) {
     declaration(c);
+    if (c->panic) {
+      return;
+    }
   }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after block.");
-  scope_out(&c->scope);
+
+  int poped = scope_out(&c->scope);
+  // Synchronize run-time stack with scope.
+  for (int i = 0; i < poped; i++) {
+    emit_byte(c, OP_POP);
+  }
 }
 
 // Pratt parsing algorithm
@@ -577,13 +641,14 @@ struct detail group(struct compiler *c)
 {
   struct detail grouped = expression(c, BP_NONE);
   consume(c, TK_RIGHT_PAREN, "Expect ')' after group.");
-  return grouped;
+  eval(c, grouped);
+  return empty_detail(TK_LEFT_PAREN);
 }
 
 struct detail assignment(struct compiler *c, struct detail left)
 {
   if (left.id != TK_IDENT) {
-    errorf(c, "Error at '=': Invalid assignment target.");
+    errorf(c, "Invalid assignment target.");
     return empty_detail(TK_ERR);
   }
   struct token tk = prev(c);

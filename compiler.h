@@ -27,6 +27,7 @@ struct compiler {
   struct map mconstants; // map from value to idx in the chunk's constant list
 
   int error;
+  int panic;
   char errmsg[128];
 };
 
