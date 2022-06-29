@@ -491,65 +491,66 @@ struct symbol {
   nud_func nud;
   led_func led;
   binding_power bp;
-  bool left_associative;
 };
 
 struct symbol symbols[TK_MAX + 1] = {
   // literals
-  [TK_NIL] = { literal, NULL, BP_NONE, true },
-  [TK_TRUE] = { literal, NULL, BP_NONE, true },
-  [TK_FALSE] = { literal, NULL, BP_NONE, true },
-  [TK_NUMBER] = { literal, NULL, BP_NONE, true },
-  [TK_IDENT] = { variable, NULL, BP_NONE, true },
-  [TK_STRING] = { literal, NULL, BP_NONE, true },
+  [TK_NIL] = { literal, NULL, BP_NONE },
+  [TK_TRUE] = { literal, NULL, BP_NONE },
+  [TK_FALSE] = { literal, NULL, BP_NONE },
+  [TK_NUMBER] = { literal, NULL, BP_NONE },
+  [TK_IDENT] = { variable, NULL, BP_NONE },
+  [TK_STRING] = { literal, NULL, BP_NONE },
 
   // operators
-  [TK_BANG] = { not, NULL, BP_NONE, true },
+  [TK_BANG] = { not, NULL, BP_NONE },
 
   // '-' has nud and led
-  [TK_MINUS] = { negative, infix, BP_TERM, true },
-  [TK_PLUS] = { NULL, infix, BP_TERM, true },
+  [TK_MINUS] = { negative, infix, BP_TERM },
+  [TK_PLUS] = { NULL, infix, BP_TERM },
 
-  [TK_SLASH] = { NULL, infix, BP_FACTOR, true },
-  [TK_STAR] = { NULL, infix, BP_FACTOR, true },
+  [TK_SLASH] = { NULL, infix, BP_FACTOR },
+  [TK_STAR] = { NULL, infix, BP_FACTOR },
 
-  [TK_BANG_EQUAL] = { NULL, infix, BP_EQUALITY, true },
-  [TK_EQUAL_EQUAL] = { NULL, infix, BP_EQUALITY, true },
+  [TK_BANG_EQUAL] = { NULL, infix, BP_EQUALITY },
+  [TK_EQUAL_EQUAL] = { NULL, infix, BP_EQUALITY },
 
-  [TK_GREATER] = { NULL, infix, BP_COMPARISON, true },
-  [TK_GREATER_EQUAL] = { NULL, infix, BP_COMPARISON, true },
-  [TK_LESS] = { NULL, infix, BP_COMPARISON, true },
-  [TK_LESS_EQUAL] = { NULL, infix, BP_COMPARISON, true },
+  [TK_GREATER] = { NULL, infix, BP_COMPARISON },
+  [TK_GREATER_EQUAL] = { NULL, infix, BP_COMPARISON },
+  [TK_LESS] = { NULL, infix, BP_COMPARISON },
+  [TK_LESS_EQUAL] = { NULL, infix, BP_COMPARISON },
 
-  [TK_AND] = { NULL, infix, BP_AND, true },
-  [TK_OR] = { NULL, infix, BP_OR, true },
+  [TK_AND] = { NULL, infix, BP_AND },
+  [TK_OR] = { NULL, infix, BP_OR },
 
-  // '=' is right-associative
-  [TK_EQUAL] = { NULL, assignment, BP_ASSIGNMENT, false },
+  [TK_EQUAL] = { NULL, assignment, BP_ASSIGNMENT },
 
   // '(' has nud
-  [TK_LEFT_PAREN] = { group, NULL, BP_NONE, true },
+  [TK_LEFT_PAREN] = { group, NULL, BP_NONE },
 
   // others
-  [TK_RIGHT_PAREN] = { NULL, NULL, BP_NONE, true },
-  [TK_LEFT_BRACE] = { NULL, NULL, BP_NONE, true },
-  [TK_RIGHT_BRACE] = { NULL, NULL, BP_NONE, true },
-  [TK_COMMA] = { NULL, NULL, BP_NONE, true },
-  [TK_DOT] = { NULL, NULL, BP_NONE, true },
-  [TK_SEMICOLON] = { NULL, NULL, BP_NONE, true },
+  [TK_RIGHT_PAREN] = { NULL, NULL, BP_NONE },
+  [TK_LEFT_BRACE] = { NULL, NULL, BP_NONE },
+  [TK_RIGHT_BRACE] = { NULL, NULL, BP_NONE },
+  [TK_COMMA] = { NULL, NULL, BP_NONE },
+  [TK_DOT] = { NULL, NULL, BP_NONE },
+  [TK_SEMICOLON] = { NULL, NULL, BP_NONE },
 
   // Keywords
-  [TK_FOR] = { NULL, NULL, BP_NONE, true },
-  [TK_PRINT] = { NULL, NULL, BP_NONE, true },
-  [TK_RETURN] = { NULL, NULL, BP_NONE, true },
-  [TK_CLASS] = { NULL, NULL, BP_NONE, true },
-  [TK_THIS] = { NULL, NULL, BP_NONE, true },
-  [TK_ELSE] = { NULL, NULL, BP_NONE, true },
-  [TK_IF] = { NULL, NULL, BP_NONE, true },
-  [TK_VAR] = { NULL, NULL, BP_NONE, true },
-  [TK_WHILE] = { NULL, NULL, BP_NONE, true },
-  [TK_FUN] = { NULL, NULL, BP_NONE, true },
-  [TK_SUPER] = { NULL, NULL, BP_NONE, true },
+  [TK_FOR] = { NULL, NULL, BP_NONE },
+  [TK_PRINT] = { NULL, NULL, BP_NONE },
+  [TK_RETURN] = { NULL, NULL, BP_NONE },
+  [TK_CLASS] = { NULL, NULL, BP_NONE },
+  [TK_THIS] = { NULL, NULL, BP_NONE },
+  [TK_ELSE] = { NULL, NULL, BP_NONE },
+  [TK_IF] = { NULL, NULL, BP_NONE },
+  [TK_VAR] = { NULL, NULL, BP_NONE },
+  [TK_WHILE] = { NULL, NULL, BP_NONE },
+  [TK_FUN] = { NULL, NULL, BP_NONE },
+  [TK_SUPER] = { NULL, NULL, BP_NONE },
+
+  // eof
+  [TK_EOF] = {NULL, NULL, BP_NONE},
 };
 
 static struct detail empty_detail(token_t id)
