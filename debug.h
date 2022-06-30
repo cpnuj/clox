@@ -17,5 +17,6 @@ int debug_instruction(struct chunk *chunk, int offset);
 
 int simple_instruction(char *name, int offset);
 int constant_instruction(char *name, struct chunk *chunk, int offset);
+int jmp_instruction(char *name, struct chunk *chunk, int sign, int offset);
 
 #endif

@@ -27,6 +27,8 @@ static void errorf(struct compiler *, char *, ...);
 static void emit_byte(struct compiler *, uint8_t);
 static void emit_bytes(struct compiler *, uint8_t, uint8_t);
 static void emit_constant(struct compiler *, struct value);
+static int emit_jmp(struct compiler *, uint8_t);
+static void patch_jmp(struct compiler *, int, int);
 static void emit_return(struct compiler *);
 
 static uint8_t make_constant(struct compiler *, struct value);
@@ -94,6 +96,7 @@ void statement(struct compiler *c);
 void expr_stmt(struct compiler *c);
 void print_stmt(struct compiler *c);
 void block_stmt(struct compiler *c);
+void if_stmt(struct compiler *c);
 
 void defvar(struct compiler *c, struct value name);
 void setvar(struct compiler *c, struct value name);
@@ -226,7 +229,7 @@ static void errorf(struct compiler *c, char *fmt, ...)
 
 static void emit_byte(struct compiler *c, uint8_t byte)
 {
-  chunk_write(c->chunk, byte, c->prev.line);
+  chunk_add(c->chunk, byte, c->prev.line);
 }
 
 static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
@@ -238,6 +241,26 @@ static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
 static void emit_constant(struct compiler *c, struct value value)
 {
   emit_bytes(c, OP_CONSTANT, make_constant(c, value));
+}
+
+static int emit_jmp(struct compiler *c, uint8_t jmpop)
+{
+  int jmpat = chunk_len(c->chunk);
+  emit_byte(c, jmpop);
+  emit_bytes(c, 0, 0);
+  return jmpat;
+}
+
+static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
+{
+  int offset;
+  if (target_pos >= jmp_pos) {
+    offset = target_pos - (jmp_pos + 3);
+  } else {
+    offset = jmp_pos + 3 - target_pos;
+  }
+  chunk_set(c->chunk, jmp_pos + 1, (offset >> 8) & 0xff);
+  chunk_set(c->chunk, jmp_pos + 2, (offset)&0xff);
 }
 
 static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
@@ -447,6 +470,8 @@ void statement(struct compiler *c)
     return print_stmt(c);
   } else if (match(c, TK_LEFT_BRACE)) {
     return block_stmt(c);
+  } else if (match(c, TK_IF)) {
+    return if_stmt(c);
   } else {
     return expr_stmt(c);
   }
@@ -483,6 +508,29 @@ void block_stmt(struct compiler *c)
   for (int i = 0; i < poped; i++) {
     emit_byte(c, OP_POP);
   }
+}
+
+void if_stmt(struct compiler *c)
+{
+#define cur_pos (chunk_len(c->chunk))
+
+  consume(c, TK_LEFT_PAREN, "Expect '(' after 'if'.");
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after condition.");
+
+  int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  statement(c);
+
+  if (match(c, TK_ELSE)) {
+    int then_jmp_pos = emit_jmp(c, OP_JMP);
+    patch_jmp(c, jmp_pos, cur_pos);
+    statement(c);
+    patch_jmp(c, then_jmp_pos, cur_pos);
+  } else {
+    patch_jmp(c, jmp_pos, cur_pos);
+  }
+
+#undef cur_pos
 }
 
 // Pratt parsing algorithm
@@ -550,7 +598,7 @@ struct symbol symbols[TK_MAX + 1] = {
   [TK_SUPER] = { NULL, NULL, BP_NONE },
 
   // eof
-  [TK_EOF] = {NULL, NULL, BP_NONE},
+  [TK_EOF] = { NULL, NULL, BP_NONE },
 };
 
 static struct detail empty_detail(token_t id)

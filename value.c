@@ -106,6 +106,17 @@ uint32_t value_hash(struct value value)
   panic("unknown type of value");
 }
 
+bool value_is_false(struct value value)
+{
+  if (is_nil(value)) {
+    return true;
+  } else if (is_bool(value)) {
+    return value_as_bool(value) == false;
+  } else {
+    return false;
+  }
+}
+
 bool value_equal(struct value v1, struct value v2)
 {
   if (v1.type != v2.type)

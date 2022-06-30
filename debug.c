@@ -73,6 +73,12 @@ int debug_instruction(struct chunk *chunk, int offset)
     return constant_instruction("OP_SET_LOCAL", chunk, offset);
   case OP_GET_LOCAL:
     return constant_instruction("OP_GET_LOCAL", chunk, offset);
+
+  case OP_JMP:
+    return jmp_instruction("OP_JMP", chunk, 1, offset);
+  case OP_JMP_ON_FALSE:
+    return jmp_instruction("OP_JMP_ON_FALSE", chunk, 1, offset);
+
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;
@@ -92,4 +98,13 @@ int constant_instruction(char *name, struct chunk *chunk, int offset)
   value_print(chunk->constants.value[constant]);
   printf("'\n");
   return offset + 2;
+}
+
+int jmp_instruction(char *name, struct chunk *chunk, int sign, int offset)
+{
+  int h8 = chunk->code[offset + 1]; // high 8 bit
+  int l8 = chunk->code[offset + 2]; // low  8 bit
+  int dist = (h8 << 8) | l8;
+  printf("%-16s %4d\n", name, sign * dist);
+  return offset + 3;
 }

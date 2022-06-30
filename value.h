@@ -49,6 +49,7 @@ struct value value_make_ident(char *, int);
 struct value value_make_string(char *str, int len);
 
 uint32_t value_hash(struct value);
+bool value_is_false(struct value);
 bool value_equal(struct value, struct value);
 void value_print(struct value v);
 

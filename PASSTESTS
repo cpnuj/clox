@@ -38,8 +38,19 @@
 ./test/number/decimal_point_at_eof.lox
 ./test/number/literals.lox
 ./test/number/trailing_dot.lox
+./test/if/var_in_then.lox
+./test/if/truth.lox
+./test/if/else.lox
+./test/if/dangling_else.lox
+./test/if/var_in_else.lox
+./test/if/class_in_else.lox
+./test/if/if.lox
+./test/if/class_in_then.lox
+./test/if/fun_in_else.lox
+./test/if/fun_in_then.lox
 ./test/variable/undefined_global.lox
 ./test/variable/in_middle_of_block.lox
+./test/variable/unreached_undefined.lox
 ./test/variable/undefined_local.lox
 ./test/variable/duplicate_local.lox
 ./test/variable/use_this_as_var.lox
@@ -68,6 +79,7 @@
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
+./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 72 Pass Rate: 27.17%
+=== Total: 265 Passed: 84 Pass Rate: 31.70%

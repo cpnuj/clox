@@ -11,6 +11,7 @@ void vm_errorf(struct vm *vm, char *format, ...);
 
 uint8_t fetch_code(struct vm *vm);
 struct value fetch_constant(struct vm *vm);
+int fetch_int16(struct vm *vm);
 void run_instruction(struct vm *vm, uint8_t i);
 
 void op_constant(struct vm *vm);
@@ -22,6 +23,8 @@ void op_set_global(struct vm *vm);
 void op_get_global(struct vm *vm);
 void op_set_local(struct vm *vm);
 void op_get_local(struct vm *vm);
+void op_jmp(struct vm *vm);
+void op_jmp_on_false(struct vm *vm);
 void op_print(struct vm *vm);
 
 static struct map *globals(struct vm *vm);
@@ -108,6 +111,13 @@ struct value fetch_constant(struct vm *vm)
   return vm->chunk.constants.value[off];
 }
 
+int fetch_int16(struct vm *vm)
+{
+  int h8 = fetch_code(vm); // high 8 bit
+  int l8 = fetch_code(vm); // low  8 bit
+  return (h8 << 8) | l8;
+}
+
 void run_instruction(struct vm *vm, uint8_t i)
 {
   switch (i) {
@@ -150,6 +160,11 @@ void run_instruction(struct vm *vm, uint8_t i)
     return op_set_local(vm);
   case OP_GET_LOCAL:
     return op_get_local(vm);
+
+  case OP_JMP:
+    return op_jmp(vm);
+  case OP_JMP_ON_FALSE:
+    return op_jmp_on_false(vm);
 
   case OP_PRINT:
     return op_print(vm);
@@ -338,6 +353,20 @@ void op_get_local(struct vm *vm)
   uint8_t off = fetch_code(vm);
   struct value *plocal = &vm->stack[off];
   vm_push(vm, *plocal);
+}
+
+void op_jmp(struct vm *vm)
+{
+  int offset = fetch_int16(vm);
+  vm->pc += offset;
+}
+
+void op_jmp_on_false(struct vm *vm)
+{
+  int offset = fetch_int16(vm);
+  if (value_is_false(vm_pop(vm))) {
+    vm->pc += offset;
+  }
 }
 
 void op_print(struct vm *vm)
