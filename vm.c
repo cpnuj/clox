@@ -58,6 +58,15 @@ struct value vm_pop(struct vm *vm)
   return v;
 }
 
+struct value vm_top(struct vm *vm)
+{
+  if (vm->sp < vm->stack) {
+    // TODO: Add error handling
+    assert(0);
+  }
+  return *vm->sp;
+}
+
 void vm_run(struct vm *vm)
 {
   while (1) {
@@ -140,8 +149,6 @@ void run_instruction(struct vm *vm, uint8_t i)
   case OP_GREATER_EQUAL:
   case OP_LESS:
   case OP_LESS_EQUAL:
-  case OP_AND:
-  case OP_OR:
     return op_binary(vm, i);
 
   case OP_POP:
@@ -225,12 +232,6 @@ void op_binary(struct vm *vm, uint8_t op)
   else                                                                         \
     vm_errorf(vm, "Operands must be numbers.")
 
-#define op_logic(op)                                                           \
-  if (is_bool(v1) && is_bool(v2))                                              \
-    v = value_make_bool(value_as_bool(v1) op value_as_bool(v2));               \
-  else                                                                         \
-    error = 1;
-
   switch (op) {
   // calculation
   case OP_ADD:
@@ -278,15 +279,6 @@ void op_binary(struct vm *vm, uint8_t op)
 
   case OP_LESS_EQUAL:
     op_comparison(<=);
-    break;
-
-  // logic
-  case OP_AND:
-    op_logic(&&);
-    break;
-
-  case OP_OR:
-    op_logic(||);
     break;
   }
 
@@ -361,10 +353,11 @@ void op_jmp(struct vm *vm)
   vm->pc += offset;
 }
 
+// op_jmp_on_false does not pop the value
 void op_jmp_on_false(struct vm *vm)
 {
   int offset = fetch_int16(vm);
-  if (value_is_false(vm_pop(vm))) {
+  if (value_is_false(vm_top(vm))) {
     vm->pc += offset;
   }
 }

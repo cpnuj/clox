@@ -79,7 +79,11 @@
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/only_line_comment.lox
 ./test/comments/unicode.lox
+./test/logical_operator/or_truth.lox
+./test/logical_operator/and_truth.lox
+./test/logical_operator/or.lox
+./test/logical_operator/and.lox
 ./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 84 Pass Rate: 31.70%
+=== Total: 265 Passed: 88 Pass Rate: 33.21%

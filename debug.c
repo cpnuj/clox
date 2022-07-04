@@ -50,10 +50,6 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_LESS", offset);
   case OP_LESS_EQUAL:
     return simple_instruction("OP_LESS_EQUAL", offset);
-  case OP_AND:
-    return simple_instruction("OP_AND", offset);
-  case OP_OR:
-    return simple_instruction("OP_OR", offset);
   case OP_PRINT:
     return simple_instruction("OP_PRINT", offset);
   case OP_POP:

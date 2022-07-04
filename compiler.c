@@ -87,7 +87,9 @@ struct detail negative(struct compiler *c);
 struct detail not(struct compiler * c);
 struct detail group(struct compiler *c);
 struct detail assignment(struct compiler *c, struct detail left);
-struct detail infix(struct compiler *c, struct detail);
+struct detail infix_and(struct compiler *c, struct detail left);
+struct detail infix_or(struct compiler *c, struct detail left);
+struct detail infix(struct compiler *c, struct detail left);
 op_code infix_opcode(struct token token);
 
 void declaration(struct compiler *c);
@@ -510,27 +512,27 @@ void block_stmt(struct compiler *c)
   }
 }
 
+static inline int cur_pos(struct compiler *c) { return chunk_len(c->chunk); }
+
 void if_stmt(struct compiler *c)
 {
-#define cur_pos (chunk_len(c->chunk))
-
   consume(c, TK_LEFT_PAREN, "Expect '(' after 'if'.");
   eval(c, expression(c, BP_NONE));
   consume(c, TK_RIGHT_PAREN, "Expect ')' after condition.");
 
   int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  emit_byte(c, OP_POP);
   statement(c);
 
   if (match(c, TK_ELSE)) {
     int then_jmp_pos = emit_jmp(c, OP_JMP);
-    patch_jmp(c, jmp_pos, cur_pos);
+    patch_jmp(c, jmp_pos, cur_pos(c));
+    emit_byte(c, OP_POP);
     statement(c);
-    patch_jmp(c, then_jmp_pos, cur_pos);
+    patch_jmp(c, then_jmp_pos, cur_pos(c));
   } else {
-    patch_jmp(c, jmp_pos, cur_pos);
+    patch_jmp(c, jmp_pos, cur_pos(c));
   }
-
-#undef cur_pos
 }
 
 // Pratt parsing algorithm
@@ -568,8 +570,8 @@ struct symbol symbols[TK_MAX + 1] = {
   [TK_LESS] = { NULL, infix, BP_COMPARISON },
   [TK_LESS_EQUAL] = { NULL, infix, BP_COMPARISON },
 
-  [TK_AND] = { NULL, infix, BP_AND },
-  [TK_OR] = { NULL, infix, BP_OR },
+  [TK_AND] = { NULL, infix_and, BP_AND },
+  [TK_OR] = { NULL, infix_or, BP_OR },
 
   [TK_EQUAL] = { NULL, assignment, BP_ASSIGNMENT },
 
@@ -736,10 +738,6 @@ op_code infix_opcode(struct token token)
     return OP_LESS;
   case TK_LESS_EQUAL:
     return OP_LESS_EQUAL;
-  case TK_AND:
-    return OP_AND;
-  case TK_OR:
-    return OP_OR;
   default:
     return OP_NONE;
   }
@@ -753,4 +751,26 @@ struct detail infix(struct compiler *c, struct detail left)
   eval(c, right);
   emit_byte(c, infix_opcode(tk));
   return empty_detail(tk.type);
+}
+
+struct detail infix_and(struct compiler *c, struct detail left)
+{
+  eval(c, left);
+  int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  emit_byte(c, OP_POP);
+  eval(c, expression(c, BP_AND));
+  patch_jmp(c, jmp_pos, cur_pos(c));
+  return empty_detail(TK_AND);
+}
+
+struct detail infix_or(struct compiler *c, struct detail left)
+{
+  eval(c, left);
+  int fail_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  int succ_pos = emit_jmp(c, OP_JMP);
+  patch_jmp(c, fail_pos, cur_pos(c));
+  emit_byte(c, OP_POP);
+  eval(c, expression(c, TK_AND));
+  patch_jmp(c, succ_pos, cur_pos(c));
+  return empty_detail(TK_OR);
 }

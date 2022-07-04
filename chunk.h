@@ -26,8 +26,6 @@ typedef enum {
   OP_GREATER_EQUAL,
   OP_LESS,
   OP_LESS_EQUAL,
-  OP_AND,
-  OP_OR,
   OP_PRINT,
   OP_POP,
   OP_GLOBAL, // define global variable

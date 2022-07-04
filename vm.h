@@ -21,5 +21,6 @@ void vm_init(struct vm *vm);
 void vm_run(struct vm *vm);
 void vm_push(struct vm *vm, struct value v);
 struct value vm_pop(struct vm *vm);
+struct value vm_top(struct vm *vm);
 
 #endif
