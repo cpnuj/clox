@@ -73,6 +73,7 @@ struct value vm_top(struct vm *vm)
 void vm_run(struct vm *vm)
 {
   while (1) {
+    // vm_debug(vm);
     if (vm->pc >= vm->chunk.len) {
       vm_error(vm, "struct vm error: pc out of bound");
     }

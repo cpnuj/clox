@@ -33,6 +33,7 @@
 ./test/operator/negate.lox
 ./test/operator/add_bool_nil.lox
 ./test/operator/add.lox
+./test/while/syntax.lox
 ./test/while/fun_in_body.lox
 ./test/while/var_in_body.lox
 ./test/while/class_in_body.lox
@@ -78,6 +79,11 @@
 ./test/assignment/local.lox
 ./test/assignment/global.lox
 ./test/nil/literal.lox
+./test/for/statement_increment.lox
+./test/for/fun_in_body.lox
+./test/for/var_in_body.lox
+./test/for/class_in_body.lox
+./test/for/scope.lox
 ./test/comments/line_at_eof.lox
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/only_line_comment.lox
@@ -89,4 +95,4 @@
 ./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 91 Pass Rate: 34.34%
+=== Total: 265 Passed: 97 Pass Rate: 36.60%

@@ -100,6 +100,7 @@ void print_stmt(struct compiler *c);
 void block_stmt(struct compiler *c);
 void if_stmt(struct compiler *c);
 void while_stmt(struct compiler *c);
+void for_stmt(struct compiler *c);
 
 void defvar(struct compiler *c, struct value name);
 void setvar(struct compiler *c, struct value name);
@@ -477,6 +478,8 @@ void statement(struct compiler *c)
     return if_stmt(c);
   } else if (match(c, TK_WHILE)) {
     return while_stmt(c);
+  } else if (match(c, TK_FOR)) {
+    return for_stmt(c);
   } else {
     return expr_stmt(c);
   }
@@ -554,6 +557,59 @@ void while_stmt(struct compiler *c)
 
   patch_jmp(c, jmp_pos, cur_pos(c));
   emit_byte(c, OP_POP); // pop out op_jmp_on_false
+}
+
+void for_stmt(struct compiler *c)
+{
+  scope_in(&c->scope);
+
+  consume(c, TK_LEFT_PAREN, "Expect '(' after 'for'.");
+
+  // initializer
+  if (match(c, TK_SEMICOLON)) {
+    // do nothing
+  } else if (match(c, TK_VAR)) {
+    var_declaration(c);
+  } else {
+    expr_stmt(c);
+  }
+
+  // condition
+  int cond_pos = cur_pos(c);
+  if (check(c, TK_SEMICOLON)) {
+    emit_constant(c, value_make_bool(true));
+  } else {
+    eval(c, expression(c, BP_NONE));
+  }
+  consume(c, TK_SEMICOLON, "Expect ';' after condition.");
+
+  int jmp_when_fail = emit_jmp(c, OP_JMP_ON_FALSE);
+  emit_byte(c, OP_POP);
+  int jmp_to_body = emit_jmp(c, OP_JMP);
+
+  // incrementer
+  int inc_pos = cur_pos(c);
+  if (!match(c, TK_RIGHT_PAREN)) {
+    eval(c, expression(c, BP_NONE));
+    emit_byte(c, OP_POP);
+    consume(c, TK_RIGHT_PAREN, "Expect ')' after incrementer.");
+  }
+  patch_jmp(c, emit_jmp(c, OP_JMP_BACK), cond_pos);
+
+  // body
+  patch_jmp(c, jmp_to_body, cur_pos(c));
+  statement(c);
+  // jump to incrementer
+  patch_jmp(c, emit_jmp(c, OP_JMP_BACK), inc_pos);
+
+  patch_jmp(c, jmp_when_fail, cur_pos(c));
+  emit_byte(c, OP_POP);
+
+  int poped = scope_out(&c->scope);
+  // TODO: make emit pop inside scope_out
+  for (int i = 0; i < poped; i++) {
+    emit_byte(c, OP_POP);
+  }
 }
 
 // Pratt parsing algorithm
