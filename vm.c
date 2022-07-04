@@ -30,6 +30,8 @@ void op_print(struct vm *vm);
 
 static struct map *globals(struct vm *vm);
 
+static void vm_debug(struct vm *vm);
+
 void vm_init(struct vm *vm)
 {
   vm->pc = 0;
@@ -370,5 +372,18 @@ void op_print(struct vm *vm)
     return;
   }
   value_print(value);
+  printf("\n");
+}
+
+static void vm_debug(struct vm *vm)
+{
+  printf("======= DEBUG VM ======\n");
+  printf("PC: %4d NEXT OP: ", vm->pc);
+  debug_instruction(&vm->chunk, vm->pc);
+  printf("STACK\n");
+  for (struct value *i = vm->stack; i <= vm->sp; i++) {
+    value_print(*i);
+    printf("\n");
+  }
   printf("\n");
 }
