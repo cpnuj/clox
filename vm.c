@@ -24,6 +24,7 @@ void op_get_global(struct vm *vm);
 void op_set_local(struct vm *vm);
 void op_get_local(struct vm *vm);
 void op_jmp(struct vm *vm);
+void op_jmp_back(struct vm *vm);
 void op_jmp_on_false(struct vm *vm);
 void op_print(struct vm *vm);
 
@@ -170,6 +171,8 @@ void run_instruction(struct vm *vm, uint8_t i)
 
   case OP_JMP:
     return op_jmp(vm);
+  case OP_JMP_BACK:
+    return op_jmp_back(vm);
   case OP_JMP_ON_FALSE:
     return op_jmp_on_false(vm);
 
@@ -347,11 +350,9 @@ void op_get_local(struct vm *vm)
   vm_push(vm, *plocal);
 }
 
-void op_jmp(struct vm *vm)
-{
-  int offset = fetch_int16(vm);
-  vm->pc += offset;
-}
+void op_jmp(struct vm *vm) { vm->pc += fetch_int16(vm); }
+
+void op_jmp_back(struct vm *vm) { vm->pc -= fetch_int16(vm); }
 
 // op_jmp_on_false does not pop the value
 void op_jmp_on_false(struct vm *vm)

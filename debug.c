@@ -72,6 +72,8 @@ int debug_instruction(struct chunk *chunk, int offset)
 
   case OP_JMP:
     return jmp_instruction("OP_JMP", chunk, 1, offset);
+  case OP_JMP_BACK:
+    return jmp_instruction("OP_JMP_BACK", chunk, -1, offset);
   case OP_JMP_ON_FALSE:
     return jmp_instruction("OP_JMP_ON_FALSE", chunk, 1, offset);
 

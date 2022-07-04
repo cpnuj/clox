@@ -99,6 +99,7 @@ void expr_stmt(struct compiler *c);
 void print_stmt(struct compiler *c);
 void block_stmt(struct compiler *c);
 void if_stmt(struct compiler *c);
+void while_stmt(struct compiler *c);
 
 void defvar(struct compiler *c, struct value name);
 void setvar(struct compiler *c, struct value name);
@@ -474,6 +475,8 @@ void statement(struct compiler *c)
     return block_stmt(c);
   } else if (match(c, TK_IF)) {
     return if_stmt(c);
+  } else if (match(c, TK_WHILE)) {
+    return while_stmt(c);
   } else {
     return expr_stmt(c);
   }
@@ -533,6 +536,24 @@ void if_stmt(struct compiler *c)
   } else {
     patch_jmp(c, jmp_pos, cur_pos(c));
   }
+}
+
+void while_stmt(struct compiler *c)
+{
+  // Record current pos for jumping back
+  int cond_pos = cur_pos(c);
+
+  consume(c, TK_LEFT_PAREN, "Expect '(' after 'while'.");
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after condition.");
+
+  int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  emit_byte(c, OP_POP); // pop out op_jmp_on_false
+  statement(c);
+  patch_jmp(c, emit_jmp(c, OP_JMP_BACK), cond_pos);
+
+  patch_jmp(c, jmp_pos, cur_pos(c));
+  emit_byte(c, OP_POP); // pop out op_jmp_on_false
 }
 
 // Pratt parsing algorithm

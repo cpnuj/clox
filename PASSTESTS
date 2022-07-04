@@ -33,6 +33,9 @@
 ./test/operator/negate.lox
 ./test/operator/add_bool_nil.lox
 ./test/operator/add.lox
+./test/while/fun_in_body.lox
+./test/while/var_in_body.lox
+./test/while/class_in_body.lox
 ./test/number/nan_equality.lox
 ./test/number/leading_dot.lox
 ./test/number/decimal_point_at_eof.lox
@@ -86,4 +89,4 @@
 ./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 88 Pass Rate: 33.21%
+=== Total: 265 Passed: 91 Pass Rate: 34.34%
