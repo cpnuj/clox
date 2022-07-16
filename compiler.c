@@ -9,37 +9,6 @@
 #include "debug.h"
 #include "value.h"
 
-void scope_init(struct scope *);
-void scope_in(struct scope *);
-int scope_out(struct scope *);
-void scope_add(struct scope *, struct value);
-int scope_find(struct scope *, struct value, int);
-int scope_find_cur(struct scope *, struct value);
-int scope_find_all(struct scope *, struct value);
-void scope_debug(struct scope *);
-bool is_global(struct scope *);
-
-void compiler_init(struct compiler *, char *);
-void compiler_set_chunk(struct compiler *, struct chunk *);
-static void error_at(struct compiler *, struct token, char *);
-static void errorf(struct compiler *, char *, ...);
-
-static void emit_byte(struct compiler *, uint8_t);
-static void emit_bytes(struct compiler *, uint8_t, uint8_t);
-static void emit_constant(struct compiler *, struct value);
-static int emit_jmp(struct compiler *, uint8_t);
-static void patch_jmp(struct compiler *, int, int);
-static void emit_return(struct compiler *);
-
-static uint8_t make_constant(struct compiler *, struct value);
-
-struct token peek(struct compiler *);
-struct token prev(struct compiler *);
-struct token forward(struct compiler *);
-struct token consume(struct compiler *, token_t, char *);
-bool check(struct compiler *, token_t);
-bool match(struct compiler *, token_t);
-
 typedef uint8_t binding_power;
 
 #define BP_NONE 0
@@ -54,68 +23,15 @@ typedef uint8_t binding_power;
 #define BP_CALL 90       // . ()
 #define BP_PRIMARY 100
 
-// struct detail stores the parsing info of detail expression,
-// used by led_func.
-// In our one-pass compiler, in general we parse a series of tokens
-// and emit codes immediately. But resolving variables is an exception
-// since we don't know we should set or get the value of the variable
-// until we see the following tokens. So we store the information
-// in this detail structure, and operators should eval these details
-// in their own way.
-// Currently, only literal and variable would be evaled effectively.
-// Nud functions of literal and variable would not emit any code
-// until its detail is evaled by the led of operators.
-struct detail {
-  token_t id;
-  int arity;
-  struct value first;
-};
-
-static struct detail empty_detail(token_t);
-static struct detail unary_detail(token_t, struct value);
-
-typedef struct detail (*nud_func)(struct compiler *);
-typedef struct detail (*led_func)(struct compiler *, struct detail);
-nud_func token_nud(struct token token);
-led_func token_led(struct token token);
-binding_power token_bp(struct token token);
-
-struct detail expression(struct compiler *c, binding_power bp);
-struct detail literal(struct compiler *c);
-struct detail variable(struct compiler *c);
-struct detail negative(struct compiler *c);
-struct detail not(struct compiler * c);
-struct detail group(struct compiler *c);
-struct detail assignment(struct compiler *c, struct detail left);
-struct detail infix_and(struct compiler *c, struct detail left);
-struct detail infix_or(struct compiler *c, struct detail left);
-struct detail infix(struct compiler *c, struct detail left);
-op_code infix_opcode(struct token token);
-
-void declaration(struct compiler *c);
-void var_declaration(struct compiler *c);
-void statement(struct compiler *c);
-void expr_stmt(struct compiler *c);
-void print_stmt(struct compiler *c);
-void block_stmt(struct compiler *c);
-void if_stmt(struct compiler *c);
-void while_stmt(struct compiler *c);
-void for_stmt(struct compiler *c);
-
-void defvar(struct compiler *c, struct value name);
-void setvar(struct compiler *c, struct value name);
-void getvar(struct compiler *c, struct value name);
-static void eval(struct compiler *, struct detail);
-
-void scope_init(struct scope *scope)
+static void scope_init(struct scope *scope)
 {
   scope->sp = -1;
   scope->cur_depth = 0;
 }
 
-void scope_in(struct scope *scope) { scope->cur_depth++; }
+static void scope_in(struct scope *scope) { scope->cur_depth++; }
 
-int scope_out(struct scope *scope)
+static int scope_out(struct scope *scope)
 {
   // pop all locals belonging to current depth
   int poped = 0;
@@ -130,25 +46,14 @@ int scope_out(struct scope *scope)
   return poped;
 }
 
-void scope_add(struct scope *scope, struct value name)
+static void scope_add(struct scope *scope, struct value name)
 {
   scope->sp++;
   scope->locals[scope->sp].depth = scope->cur_depth;
   scope->locals[scope->sp].name = name;
 }
 
-#define FIND_ALL 1
-#define FIND_CUR 2
-int scope_find(struct scope *scope, struct value name, int method)
-{
-  if (method == FIND_ALL) {
-    return scope_find_all(scope, name);
-  } else {
-    return scope_find_cur(scope, name);
-  }
-}
-
-int scope_find_cur(struct scope *scope, struct value name)
+static int scope_find_cur(struct scope *scope, struct value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
     if (scope->locals[at].depth != scope->cur_depth) {
@@ -161,7 +66,7 @@ int scope_find_cur(struct scope *scope, struct value name)
   return -1;
 }
 
-int scope_find_all(struct scope *scope, struct value name)
+static int scope_find_all(struct scope *scope, struct value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
     if (value_equal(scope->locals[at].name, name)) {
@@ -171,7 +76,18 @@ int scope_find_all(struct scope *scope, struct value name)
   return -1;
 }
 
-void scope_debug(struct scope *scope)
+#define FIND_ALL 1
+#define FIND_CUR 2
+static int scope_find(struct scope *scope, struct value name, int method)
+{
+  if (method == FIND_ALL) {
+    return scope_find_all(scope, name);
+  } else {
+    return scope_find_cur(scope, name);
+  }
+}
+
+static void scope_debug(struct scope *scope)
 {
   printf("========== debug scope ==========\n");
   printf("sp: %d cur_depth: %d\n", scope->sp, scope->cur_depth);
@@ -184,25 +100,7 @@ void scope_debug(struct scope *scope)
 }
 
 // is_global returns true if the scope is in global env.
-bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
-
-void compiler_init(struct compiler *c, char *src)
-{
-  c->panic = 0;
-  c->error = 0;
-
-  lex_init(&c->lexer, src, strlen(src));
-  scope_init(&c->scope);
-  map_init(&c->mconstants);
-
-  // initial forward
-  forward(c);
-}
-
-void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
-{
-  c->chunk = chunk;
-}
+static bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
 
 static void error_at(struct compiler *c, struct token tk, char *msg)
 {
@@ -223,6 +121,43 @@ static void error_at(struct compiler *c, struct token tk, char *msg)
   c->error = 1;
 }
 
+static inline struct token peek(struct compiler *c) { return c->curr; }
+
+static inline struct token prev(struct compiler *c) { return c->prev; }
+
+static struct token forward(struct compiler *c)
+{
+  c->prev = c->curr;
+  c->curr = lex(&c->lexer);
+  if (c->curr.type == TK_ERR) {
+    error_at(c, c->curr, c->lexer.errmsg);
+  }
+  return c->prev;
+}
+
+static struct token consume(struct compiler *c, token_t type, char *msg)
+{
+  struct token tk = peek(c);
+  if (tk.type == type) {
+    return forward(c);
+  }
+  error_at(c, tk, msg);
+}
+
+static bool check(struct compiler *c, token_t type)
+{
+  return peek(c).type == type;
+}
+
+static bool match(struct compiler *c, token_t type)
+{
+  if (check(c, type)) {
+    forward(c);
+    return true;
+  }
+  return false;
+}
+
 static void errorf(struct compiler *c, char *fmt, ...)
 {
   va_list ap;
@@ -240,6 +175,25 @@ static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
 {
   emit_byte(c, b1);
   emit_byte(c, b2);
+}
+
+// make_constant returns the idx of constant value. If the value has been
+// created, return its idx. Else, add new constant to compiling chunk.
+static uint8_t make_constant(struct compiler *c, struct value value)
+{
+#define value_as_int(value) ((int)value_as_number(value))
+  struct value vidx;
+  if (map_get(&c->mconstants, value, &vidx)) {
+    return (uint8_t)value_as_int(vidx);
+  }
+  int constant = chunk_add_constant(c->chunk, value);
+  if (constant > UINT8_MAX) {
+    // FIXME: add error
+    return 0;
+  }
+  vidx = value_make_number((double)constant);
+  map_put(&c->mconstants, value, vidx);
+  return (uint8_t)constant;
 }
 
 static void emit_constant(struct compiler *c, struct value value)
@@ -269,60 +223,7 @@ static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
 
 static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
 
-// make_constant returns the idx of constant value. If the value has been
-// created, return its idx. Else, add new constant to compiling chunk.
-static uint8_t make_constant(struct compiler *c, struct value value)
-{
-#define value_as_int(value) ((int)value_as_number(value))
-  struct value vidx;
-  if (map_get(&c->mconstants, value, &vidx)) {
-    return (uint8_t)value_as_int(vidx);
-  }
-  int constant = chunk_add_constant(c->chunk, value);
-  if (constant > UINT8_MAX) {
-    // FIXME: add error
-    return 0;
-  }
-  vidx = value_make_number((double)constant);
-  map_put(&c->mconstants, value, vidx);
-  return (uint8_t)constant;
-}
-
-struct token peek(struct compiler *c) { return c->curr; }
-
-struct token prev(struct compiler *c) { return c->prev; }
-
-struct token forward(struct compiler *c)
-{
-  c->prev = c->curr;
-  c->curr = lex(&c->lexer);
-  if (c->curr.type == TK_ERR) {
-    error_at(c, c->curr, c->lexer.errmsg);
-  }
-  return c->prev;
-}
-
-struct token consume(struct compiler *c, token_t type, char *msg)
-{
-  struct token tk = peek(c);
-  if (tk.type == type) {
-    return forward(c);
-  }
-  error_at(c, tk, msg);
-}
-
-bool check(struct compiler *c, token_t type) { return peek(c).type == type; }
-
-bool match(struct compiler *c, token_t type)
-{
-  if (check(c, type)) {
-    forward(c);
-    return true;
-  }
-  return false;
-}
-
-void defvar(struct compiler *c, struct value name)
+static void defvar(struct compiler *c, struct value name)
 {
   if (is_global(&c->scope)) {
     uint8_t constant = make_constant(c, name);
@@ -333,7 +234,7 @@ void defvar(struct compiler *c, struct value name)
 }
 
 // TODO: setvar and getvar have similar structure, consider refactor
-void setvar(struct compiler *c, struct value name)
+static void setvar(struct compiler *c, struct value name)
 {
   int idx = scope_find_all(&c->scope, name);
   if (idx >= 0) {
@@ -345,7 +246,7 @@ void setvar(struct compiler *c, struct value name)
   emit_bytes(c, OP_SET_GLOBAL, constant);
 }
 
-void getvar(struct compiler *c, struct value name)
+static void getvar(struct compiler *c, struct value name)
 {
   int idx = scope_find(&c->scope, name, FIND_ALL);
   if (idx >= 0) {
@@ -357,84 +258,252 @@ void getvar(struct compiler *c, struct value name)
   emit_bytes(c, OP_GET_GLOBAL, constant);
 }
 
-static void eval(struct compiler *c, struct detail detail)
+// Pratt parsing algorithm
+
+// struct context stores the parsing info of context expression,
+// used by led_func.
+// In our one-pass compiler, in general we parse a series of tokens
+// and emit codes immediately. But resolving variables is an exception
+// since we don't know we should set or get the value of the variable
+// until we see the following tokens. So we store the information
+// in this context structure, and operators should eval these details
+// in their own way.
+// Currently, only literal and variable would be evaled effectively.
+// Nud functions of literal and variable would not emit any code
+// until its context is evaled by the led of operators.
+struct context {
+  token_t id;
+  int arity;
+  struct value first;
+};
+
+static struct context empty_context(token_t id)
 {
-  if (detail.arity == 0) {
+  struct context context = {
+    .arity = 0,
+    .id = id,
+  };
+  return context;
+}
+
+static struct context unary_context(token_t id, struct value first)
+{
+  struct context context = {
+    .arity = 1,
+    .id = id,
+    .first = first,
+  };
+  return context;
+}
+
+static void eval(struct compiler *c, struct context context)
+{
+  if (context.arity == 0) {
     return;
   }
-  if (detail.id == TK_IDENT) {
-    getvar(c, detail.first);
+  if (context.id == TK_IDENT) {
+    getvar(c, context.first);
   } else {
-    emit_constant(c, detail.first);
+    emit_constant(c, context.first);
   }
 }
 
-int compile(char *src, struct chunk *chunk)
-{
-  struct compiler c;
-  compiler_init(&c, src);
-  compiler_set_chunk(&c, chunk);
+// nud_func denotes operator with one operand
+typedef struct context (*nud_func)(struct compiler *);
+// led_func denotes operator with more than one operands
+typedef struct context (*led_func)(struct compiler *, struct context);
 
-  while (!match(&c, TK_EOF)) {
-    if (c.panic) {
-      break;
+struct symbol {
+  nud_func nud;
+  led_func led;
+  binding_power bp;
+};
+
+static struct symbol symbols[TK_MAX + 1];
+
+static inline int cur_pos(struct compiler *c) { return chunk_len(c->chunk); }
+
+#define nud_of(token) (symbols[token.type].nud)
+#define led_of(token) (symbols[token.type].led)
+#define bp_of(token) (symbols[token.type].bp)
+
+static struct context expression(struct compiler *c, binding_power bp)
+{
+  struct context left;
+  nud_func nud = nud_of(forward(c));
+  if (nud == NULL) {
+    errorf(c, "Expect expression.");
+    return empty_context(TK_ERR);
+  }
+  left = nud(c);
+  while (bp < bp_of(peek(c))) {
+    led_func led = led_of(forward(c));
+    if (led == NULL) {
+      errorf(c, "Expect expression.");
+      return empty_context(TK_ERR);
     }
-    declaration(&c);
+    left = led(c, left);
   }
-
-  emit_byte(&c, OP_RETURN);
-  return c.error;
+  return left;
 }
 
-// CFG for program: [0/0]// program        → declaration* EOF ;
-//
-// declaration    → varDecl
-//                → funDecl
-//                | statement ;
-//
-// varDecl        → VAR IDENTIFIER "=" expression ;
-//
-// funDecl        → "fun" function ;
-// function       → IDENTIFIER "(" parameters? ")" blockStmt ;
-// parameters     → IDENTIFIER ("," IDENTIFIER)* ;
-//
-// statement      → exprStmt
-//                | printStmt
-//                | blockStmt
-//                | ifStmt
-//                | whileStmt
-//                | forStmt
-//                | returnStmt
-//                | classStmt;
-//
-// exprStmt       → expression ";" ;
-//
-// printStmt      → "print" expression ";" ;
-//
-// blockStmt      → "{" declaration* "}" ;
-//
-// ifStmt         → "if" "(" expression ")" statement ("else" statement)? ;
-//
-// whileStmt      → "while" "(" expression ")" statement;
-//
-// forStmt        →
-//   "for" "(" (varDecl | exprStmt | ";") expression? ";" expression? ")"
-//   statement ;
-//
-// returnStmt     → "return" expression? ";" ;
-//
-// classStmt      → "class" IDENTIFIER "{" function* "}" ;
-
-void declaration(struct compiler *c)
+static struct context literal(struct compiler *c)
 {
-  if (match(c, TK_VAR)) {
-    var_declaration(c);
-  } else {
-    statement(c);
+  struct value v;
+  struct token tk = prev(c);
+  switch (tk.type) {
+  case TK_NIL:
+    v = value_make_nil();
+    break;
+  case TK_FALSE:
+    v = value_make_bool(false);
+    break;
+  case TK_TRUE:
+    v = value_make_bool(true);
+    break;
+  case TK_NUMBER:
+    v = value_make_number(strtod(token_lexem_start(&tk), NULL));
+    break;
+  case TK_STRING:
+    v = value_make_string(token_lexem_start(&tk) + 1, token_lexem_len(&tk) - 2);
+    break;
+  }
+  return unary_context(tk.type, v);
+}
+
+static struct context variable(struct compiler *c)
+{
+  struct token tk = prev(c);
+  struct value name
+      = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
+  return unary_context(tk.type, name);
+}
+
+static struct context negative(struct compiler *c)
+{
+  struct context right = expression(c, BP_UNARY);
+  eval(c, right);
+  emit_byte(c, OP_NEGATIVE);
+  return empty_context(TK_MINUS);
+}
+
+static struct context not(struct compiler * c)
+{
+  struct context right = expression(c, BP_UNARY);
+  eval(c, right);
+  emit_byte(c, OP_NOT);
+  return empty_context(TK_BANG);
+}
+
+static struct context group(struct compiler *c)
+{
+  struct context grouped = expression(c, BP_NONE);
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after group.");
+  eval(c, grouped);
+  return empty_context(TK_LEFT_PAREN);
+}
+
+static struct context assignment(struct compiler *c, struct context left)
+{
+  if (left.id != TK_IDENT) {
+    errorf(c, "Invalid assignment target.");
+    return empty_context(TK_ERR);
+  }
+  struct token tk = prev(c);
+  struct context right = expression(c, bp_of(tk) - 1);
+  eval(c, right);
+  setvar(c, left.first);
+  return empty_context(tk.type);
+}
+
+static op_code infix_opcode(struct token token)
+{
+  switch (token_type(&token)) {
+  case TK_PLUS:
+    return OP_ADD;
+  case TK_MINUS:
+    return OP_MINUS;
+  case TK_STAR:
+    return OP_MUL;
+  case TK_SLASH:
+    return OP_DIV;
+  case TK_BANG_EQUAL:
+    return OP_BANG_EQUAL;
+  case TK_EQUAL_EQUAL:
+    return OP_EQUAL_EQUAL;
+  case TK_GREATER:
+    return OP_GREATER;
+  case TK_GREATER_EQUAL:
+    return OP_GREATER_EQUAL;
+  case TK_LESS:
+    return OP_LESS;
+  case TK_LESS_EQUAL:
+    return OP_LESS_EQUAL;
+  default:
+    return OP_NONE;
   }
 }
 
-void var_declaration(struct compiler *c)
+static struct context infix(struct compiler *c, struct context left)
+{
+  eval(c, left);
+  struct token tk = prev(c);
+  struct context right = expression(c, bp_of(tk));
+  eval(c, right);
+  emit_byte(c, infix_opcode(tk));
+  return empty_context(tk.type);
+}
+
+static struct context infix_and(struct compiler *c, struct context left)
+{
+  eval(c, left);
+  int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  emit_byte(c, OP_POP);
+  eval(c, expression(c, BP_AND));
+  patch_jmp(c, jmp_pos, cur_pos(c));
+  return empty_context(TK_AND);
+}
+
+static struct context infix_or(struct compiler *c, struct context left)
+{
+  eval(c, left);
+  int fail_pos = emit_jmp(c, OP_JMP_ON_FALSE);
+  int succ_pos = emit_jmp(c, OP_JMP);
+  patch_jmp(c, fail_pos, cur_pos(c));
+  emit_byte(c, OP_POP);
+  eval(c, expression(c, TK_AND));
+  patch_jmp(c, succ_pos, cur_pos(c));
+  return empty_context(TK_OR);
+}
+
+static void nud_symbol(token_t id, binding_power bp, nud_func nud)
+{
+  symbols[id].bp = bp;
+  symbols[id].nud = nud;
+}
+
+static void led_symbol(token_t id, binding_power bp, led_func led)
+{
+  symbols[id].bp = bp;
+  symbols[id].led = led;
+}
+
+static void just_symbol(token_t id)
+{
+  symbols[id].bp = BP_NONE;
+}
+
+static void var_declaration(struct compiler *);
+static void block_stmt(struct compiler *);
+static void if_stmt(struct compiler *);
+static void while_stmt(struct compiler *);
+static void for_stmt(struct compiler *);
+static void expr_stmt(struct compiler *);
+static void print_stmt(struct compiler *);
+static void statement(struct compiler *);
+static void declaration(struct compiler *);
+
+static void var_declaration(struct compiler *c)
 {
   consume(c, TK_IDENT, "Expect variable name.");
   struct token token = prev(c);
@@ -447,7 +516,7 @@ void var_declaration(struct compiler *c)
   }
 
   if (match(c, TK_EQUAL)) {
-    struct detail initializer = expression(c, BP_NONE);
+    struct context initializer = expression(c, BP_NONE);
 
     bool in_local = !is_global(&c->scope);
     bool is_own_initializer
@@ -468,38 +537,7 @@ void var_declaration(struct compiler *c)
   consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
 }
 
-void statement(struct compiler *c)
-{
-  if (match(c, TK_PRINT)) {
-    return print_stmt(c);
-  } else if (match(c, TK_LEFT_BRACE)) {
-    return block_stmt(c);
-  } else if (match(c, TK_IF)) {
-    return if_stmt(c);
-  } else if (match(c, TK_WHILE)) {
-    return while_stmt(c);
-  } else if (match(c, TK_FOR)) {
-    return for_stmt(c);
-  } else {
-    return expr_stmt(c);
-  }
-}
-
-void expr_stmt(struct compiler *c)
-{
-  eval(c, expression(c, BP_NONE));
-  consume(c, TK_SEMICOLON, "Expect ';' after expression declaration.");
-  emit_byte(c, OP_POP);
-}
-
-void print_stmt(struct compiler *c)
-{
-  eval(c, expression(c, BP_NONE));
-  consume(c, TK_SEMICOLON, "Expect ';' after print declaration.");
-  emit_byte(c, OP_PRINT);
-}
-
-void block_stmt(struct compiler *c)
+static void block_stmt(struct compiler *c)
 {
   scope_in(&c->scope);
 
@@ -518,9 +556,7 @@ void block_stmt(struct compiler *c)
   }
 }
 
-static inline int cur_pos(struct compiler *c) { return chunk_len(c->chunk); }
-
-void if_stmt(struct compiler *c)
+static void if_stmt(struct compiler *c)
 {
   consume(c, TK_LEFT_PAREN, "Expect '(' after 'if'.");
   eval(c, expression(c, BP_NONE));
@@ -541,7 +577,7 @@ void if_stmt(struct compiler *c)
   }
 }
 
-void while_stmt(struct compiler *c)
+static void while_stmt(struct compiler *c)
 {
   // Record current pos for jumping back
   int cond_pos = cur_pos(c);
@@ -559,7 +595,7 @@ void while_stmt(struct compiler *c)
   emit_byte(c, OP_POP); // pop out op_jmp_on_false
 }
 
-void for_stmt(struct compiler *c)
+static void for_stmt(struct compiler *c)
 {
   scope_in(&c->scope);
 
@@ -612,242 +648,144 @@ void for_stmt(struct compiler *c)
   }
 }
 
-// Pratt parsing algorithm
+static void expr_stmt(struct compiler *c)
+{
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_SEMICOLON, "Expect ';' after expression declaration.");
+  emit_byte(c, OP_POP);
+}
 
-struct symbol {
-  nud_func nud;
-  led_func led;
-  binding_power bp;
-};
+static void print_stmt(struct compiler *c)
+{
+  eval(c, expression(c, BP_NONE));
+  consume(c, TK_SEMICOLON, "Expect ';' after print declaration.");
+  emit_byte(c, OP_PRINT);
+}
 
-struct symbol symbols[TK_MAX + 1] = {
+static void statement(struct compiler *c)
+{
+  if (match(c, TK_PRINT)) {
+    return print_stmt(c);
+  } else if (match(c, TK_LEFT_BRACE)) {
+    return block_stmt(c);
+  } else if (match(c, TK_IF)) {
+    return if_stmt(c);
+  } else if (match(c, TK_WHILE)) {
+    return while_stmt(c);
+  } else if (match(c, TK_FOR)) {
+    return for_stmt(c);
+  } else {
+    return expr_stmt(c);
+  }
+}
+
+static void declaration(struct compiler *c)
+{
+  if (match(c, TK_VAR)) {
+    var_declaration(c);
+  } else {
+    statement(c);
+  }
+}
+
+static void setup()
+{
+  static bool done = false;
+  if (done) return;
+
   // literals
-  [TK_NIL] = { literal, NULL, BP_NONE },
-  [TK_TRUE] = { literal, NULL, BP_NONE },
-  [TK_FALSE] = { literal, NULL, BP_NONE },
-  [TK_NUMBER] = { literal, NULL, BP_NONE },
-  [TK_IDENT] = { variable, NULL, BP_NONE },
-  [TK_STRING] = { literal, NULL, BP_NONE },
+  nud_symbol(TK_NIL, BP_NONE, literal);
+  nud_symbol(TK_TRUE, BP_NONE, literal);
+  nud_symbol(TK_FALSE, BP_NONE, literal);
+  nud_symbol(TK_NUMBER, BP_NONE, literal);
+  nud_symbol(TK_IDENT, BP_NONE, variable);
+  nud_symbol(TK_STRING, BP_NONE, literal);
 
   // operators
-  [TK_BANG] = { not, NULL, BP_NONE },
+  nud_symbol(TK_BANG, BP_NONE, not);
 
   // '-' has nud and led
-  [TK_MINUS] = { negative, infix, BP_TERM },
-  [TK_PLUS] = { NULL, infix, BP_TERM },
+  nud_symbol(TK_MINUS, BP_TERM, negative);
+  led_symbol(TK_MINUS, BP_TERM, infix);
+  led_symbol(TK_PLUS, BP_TERM, infix);
 
-  [TK_SLASH] = { NULL, infix, BP_FACTOR },
-  [TK_STAR] = { NULL, infix, BP_FACTOR },
+  led_symbol(TK_SLASH, BP_FACTOR, infix);
+  led_symbol(TK_STAR, BP_FACTOR, infix);
 
-  [TK_BANG_EQUAL] = { NULL, infix, BP_EQUALITY },
-  [TK_EQUAL_EQUAL] = { NULL, infix, BP_EQUALITY },
+  led_symbol(TK_BANG_EQUAL, BP_EQUALITY, infix);
+  led_symbol(TK_EQUAL_EQUAL, BP_EQUALITY, infix);
 
-  [TK_GREATER] = { NULL, infix, BP_COMPARISON },
-  [TK_GREATER_EQUAL] = { NULL, infix, BP_COMPARISON },
-  [TK_LESS] = { NULL, infix, BP_COMPARISON },
-  [TK_LESS_EQUAL] = { NULL, infix, BP_COMPARISON },
+  led_symbol(TK_GREATER, BP_COMPARISON, infix);
+  led_symbol(TK_GREATER_EQUAL, BP_COMPARISON, infix);
+  led_symbol(TK_LESS, BP_COMPARISON, infix);
+  led_symbol(TK_LESS_EQUAL, BP_COMPARISON, infix);
 
-  [TK_AND] = { NULL, infix_and, BP_AND },
-  [TK_OR] = { NULL, infix_or, BP_OR },
+  led_symbol(TK_AND, BP_AND, infix_and);
+  led_symbol(TK_OR, BP_OR, infix_or);
 
-  [TK_EQUAL] = { NULL, assignment, BP_ASSIGNMENT },
+  led_symbol(TK_EQUAL, BP_ASSIGNMENT, assignment);
 
   // '(' has nud
-  [TK_LEFT_PAREN] = { group, NULL, BP_NONE },
+  nud_symbol(TK_LEFT_PAREN, BP_NONE, group);
 
   // others
-  [TK_RIGHT_PAREN] = { NULL, NULL, BP_NONE },
-  [TK_LEFT_BRACE] = { NULL, NULL, BP_NONE },
-  [TK_RIGHT_BRACE] = { NULL, NULL, BP_NONE },
-  [TK_COMMA] = { NULL, NULL, BP_NONE },
-  [TK_DOT] = { NULL, NULL, BP_NONE },
-  [TK_SEMICOLON] = { NULL, NULL, BP_NONE },
+  just_symbol(TK_RIGHT_PAREN);
+  just_symbol(TK_LEFT_BRACE);
+  just_symbol(TK_RIGHT_BRACE);
+  just_symbol(TK_COMMA);
+  just_symbol(TK_DOT);
+  just_symbol(TK_SEMICOLON);
 
   // Keywords
-  [TK_FOR] = { NULL, NULL, BP_NONE },
-  [TK_PRINT] = { NULL, NULL, BP_NONE },
-  [TK_RETURN] = { NULL, NULL, BP_NONE },
-  [TK_CLASS] = { NULL, NULL, BP_NONE },
-  [TK_THIS] = { NULL, NULL, BP_NONE },
-  [TK_ELSE] = { NULL, NULL, BP_NONE },
-  [TK_IF] = { NULL, NULL, BP_NONE },
-  [TK_VAR] = { NULL, NULL, BP_NONE },
-  [TK_WHILE] = { NULL, NULL, BP_NONE },
-  [TK_FUN] = { NULL, NULL, BP_NONE },
-  [TK_SUPER] = { NULL, NULL, BP_NONE },
+  just_symbol(TK_FOR);
+  just_symbol(TK_PRINT);
+  just_symbol(TK_RETURN);
+  just_symbol(TK_CLASS);
+  just_symbol(TK_THIS);
+  just_symbol(TK_ELSE);
+  just_symbol(TK_IF);
+  just_symbol(TK_VAR);
+  just_symbol(TK_WHILE);
+  just_symbol(TK_FUN);
+  just_symbol(TK_SUPER);
 
   // eof
-  [TK_EOF] = { NULL, NULL, BP_NONE },
-};
-
-static struct detail empty_detail(token_t id)
-{
-  struct detail detail = {
-    .arity = 0,
-    .id = id,
-  };
-  return detail;
+  just_symbol(TK_EOF);
 }
 
-static struct detail unary_detail(token_t id, struct value first)
+static void compiler_init(struct compiler *c, char *src)
 {
-  struct detail detail = {
-    .arity = 1,
-    .id = id,
-    .first = first,
-  };
-  return detail;
+  setup();
+
+  c->panic = 0;
+  c->error = 0;
+
+  lex_init(&c->lexer, src, strlen(src));
+  scope_init(&c->scope);
+  map_init(&c->mconstants);
+
+  // initial forward
+  forward(c);
 }
 
-struct detail expression(struct compiler *c, binding_power bp)
+static void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
 {
-  struct detail left;
-  nud_func nud = token_nud(forward(c));
-  if (nud == NULL) {
-    errorf(c, "Expect expression.");
-    return empty_detail(TK_ERR);
-  }
-  left = nud(c);
-  while (bp < token_bp(peek(c))) {
-    led_func led = token_led(forward(c));
-    if (led == NULL) {
-      errorf(c, "Expect expression.");
-      return empty_detail(TK_ERR);
+  c->chunk = chunk;
+}
+
+int compile(char *src, struct chunk *chunk)
+{
+  struct compiler c;
+  compiler_init(&c, src);
+  compiler_set_chunk(&c, chunk);
+
+  while (!match(&c, TK_EOF)) {
+    if (c.panic) {
+      break;
     }
-    left = led(c, left);
+    declaration(&c);
   }
-  return left;
-}
 
-nud_func token_nud(struct token token) { return symbols[token.type].nud; }
-led_func token_led(struct token token) { return symbols[token.type].led; }
-binding_power token_bp(struct token token) { return symbols[token.type].bp; }
-
-struct detail literal(struct compiler *c)
-{
-  struct value v;
-  struct token tk = prev(c);
-  switch (tk.type) {
-  case TK_NIL:
-    v = value_make_nil();
-    break;
-  case TK_FALSE:
-    v = value_make_bool(false);
-    break;
-  case TK_TRUE:
-    v = value_make_bool(true);
-    break;
-  case TK_NUMBER:
-    v = value_make_number(strtod(token_lexem_start(&tk), NULL));
-    break;
-  case TK_STRING:
-    v = value_make_string(token_lexem_start(&tk) + 1, token_lexem_len(&tk) - 2);
-    break;
-  }
-  return unary_detail(tk.type, v);
-}
-
-struct detail variable(struct compiler *c)
-{
-  struct token tk = prev(c);
-  struct value name
-      = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
-  return unary_detail(tk.type, name);
-}
-
-struct detail negative(struct compiler *c)
-{
-  struct detail right = expression(c, BP_UNARY);
-  eval(c, right);
-  emit_byte(c, OP_NEGATIVE);
-  return empty_detail(TK_MINUS);
-}
-
-struct detail not(struct compiler * c)
-{
-  struct detail right = expression(c, BP_UNARY);
-  eval(c, right);
-  emit_byte(c, OP_NOT);
-  return empty_detail(TK_BANG);
-}
-
-struct detail group(struct compiler *c)
-{
-  struct detail grouped = expression(c, BP_NONE);
-  consume(c, TK_RIGHT_PAREN, "Expect ')' after group.");
-  eval(c, grouped);
-  return empty_detail(TK_LEFT_PAREN);
-}
-
-struct detail assignment(struct compiler *c, struct detail left)
-{
-  if (left.id != TK_IDENT) {
-    errorf(c, "Invalid assignment target.");
-    return empty_detail(TK_ERR);
-  }
-  struct token tk = prev(c);
-  struct detail right = expression(c, token_bp(tk) - 1);
-  eval(c, right);
-  setvar(c, left.first);
-  return empty_detail(tk.type);
-}
-
-op_code infix_opcode(struct token token)
-{
-  switch (token_type(&token)) {
-  case TK_PLUS:
-    return OP_ADD;
-  case TK_MINUS:
-    return OP_MINUS;
-  case TK_STAR:
-    return OP_MUL;
-  case TK_SLASH:
-    return OP_DIV;
-  case TK_BANG_EQUAL:
-    return OP_BANG_EQUAL;
-  case TK_EQUAL_EQUAL:
-    return OP_EQUAL_EQUAL;
-  case TK_GREATER:
-    return OP_GREATER;
-  case TK_GREATER_EQUAL:
-    return OP_GREATER_EQUAL;
-  case TK_LESS:
-    return OP_LESS;
-  case TK_LESS_EQUAL:
-    return OP_LESS_EQUAL;
-  default:
-    return OP_NONE;
-  }
-}
-
-struct detail infix(struct compiler *c, struct detail left)
-{
-  eval(c, left);
-  struct token tk = prev(c);
-  struct detail right = expression(c, token_bp(tk));
-  eval(c, right);
-  emit_byte(c, infix_opcode(tk));
-  return empty_detail(tk.type);
-}
-
-struct detail infix_and(struct compiler *c, struct detail left)
-{
-  eval(c, left);
-  int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
-  emit_byte(c, OP_POP);
-  eval(c, expression(c, BP_AND));
-  patch_jmp(c, jmp_pos, cur_pos(c));
-  return empty_detail(TK_AND);
-}
-
-struct detail infix_or(struct compiler *c, struct detail left)
-{
-  eval(c, left);
-  int fail_pos = emit_jmp(c, OP_JMP_ON_FALSE);
-  int succ_pos = emit_jmp(c, OP_JMP);
-  patch_jmp(c, fail_pos, cur_pos(c));
-  emit_byte(c, OP_POP);
-  eval(c, expression(c, TK_AND));
-  patch_jmp(c, succ_pos, cur_pos(c));
-  return empty_detail(TK_OR);
+  emit_byte(&c, OP_RETURN);
+  return c.error;
 }
