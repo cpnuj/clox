@@ -23,85 +23,6 @@ typedef uint8_t binding_power;
 #define BP_CALL 90       // . ()
 #define BP_PRIMARY 100
 
-static void scope_init(struct scope *scope)
-{
-  scope->sp = -1;
-  scope->cur_depth = 0;
-}
-
-static void scope_in(struct scope *scope) { scope->cur_depth++; }
-
-static int scope_out(struct scope *scope)
-{
-  // pop all locals belonging to current depth
-  int poped = 0;
-  while (scope->sp >= 0) {
-    if (scope->locals[scope->sp].depth != scope->cur_depth) {
-      break;
-    }
-    scope->sp--;
-    poped++;
-  }
-  scope->cur_depth--;
-  return poped;
-}
-
-static void scope_add(struct scope *scope, struct value name)
-{
-  scope->sp++;
-  scope->locals[scope->sp].depth = scope->cur_depth;
-  scope->locals[scope->sp].name = name;
-}
-
-static int scope_find_cur(struct scope *scope, struct value name)
-{
-  for (int at = scope->sp; at >= 0; at--) {
-    if (scope->locals[at].depth != scope->cur_depth) {
-      return -1;
-    }
-    if (value_equal(scope->locals[at].name, name)) {
-      return at;
-    }
-  }
-  return -1;
-}
-
-static int scope_find_all(struct scope *scope, struct value name)
-{
-  for (int at = scope->sp; at >= 0; at--) {
-    if (value_equal(scope->locals[at].name, name)) {
-      return at;
-    }
-  }
-  return -1;
-}
-
-#define FIND_ALL 1
-#define FIND_CUR 2
-static int scope_find(struct scope *scope, struct value name, int method)
-{
-  if (method == FIND_ALL) {
-    return scope_find_all(scope, name);
-  } else {
-    return scope_find_cur(scope, name);
-  }
-}
-
-static void scope_debug(struct scope *scope)
-{
-  printf("========== debug scope ==========\n");
-  printf("sp: %d cur_depth: %d\n", scope->sp, scope->cur_depth);
-  for (int i = 0; i <= scope->sp; i++) {
-    printf("%5d depth %6d  ", i, scope->locals[i].depth);
-    value_print(scope->locals[i].name);
-    printf("\n");
-  }
-  printf("======== end debug scope ========\n");
-}
-
-// is_global returns true if the scope is in global env.
-static bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
-
 static void error_at(struct compiler *c, struct token tk, char *msg)
 {
   if (c->panic)
@@ -223,13 +144,91 @@ static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
 
 static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
 
+static void scope_init(struct compiler *c)
+{
+  c->scope.sp = -1;
+  c->scope.cur_depth = 0;
+}
+
+static void scope_in(struct compiler *c) { c->scope.cur_depth++; }
+
+static void scope_out(struct compiler *c)
+{
+  struct scope *scope = &c->scope;
+  while (scope->sp >= 0) {
+    if (scope->locals[scope->sp].depth != scope->cur_depth) {
+      break;
+    }
+    scope->sp--;
+    emit_byte(c, OP_POP);
+  }
+  scope->cur_depth--;
+}
+
+static void scope_add(struct compiler *c, struct value name)
+{
+  struct scope *scope = &c->scope;
+  scope->sp++;
+  scope->locals[scope->sp].depth = scope->cur_depth;
+  scope->locals[scope->sp].name = name;
+}
+
+static int scope_find_cur(struct scope *scope, struct value name)
+{
+  for (int at = scope->sp; at >= 0; at--) {
+    if (scope->locals[at].depth != scope->cur_depth) {
+      return -1;
+    }
+    if (value_equal(scope->locals[at].name, name)) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+static int scope_find_all(struct scope *scope, struct value name)
+{
+  for (int at = scope->sp; at >= 0; at--) {
+    if (value_equal(scope->locals[at].name, name)) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+#define FIND_ALL 1
+#define FIND_CUR 2
+static int scope_find(struct compiler *c, struct value name, int method)
+{
+  if (method == FIND_ALL) {
+    return scope_find_all(&c->scope, name);
+  } else {
+    return scope_find_cur(&c->scope, name);
+  }
+}
+
+static void scope_debug(struct scope *scope)
+{
+  printf("========== debug scope ==========\n");
+  printf("sp: %d cur_depth: %d\n", scope->sp, scope->cur_depth);
+  for (int i = 0; i <= scope->sp; i++) {
+    printf("%5d depth %6d  ", i, scope->locals[i].depth);
+    value_print(scope->locals[i].name);
+    printf("\n");
+  }
+  printf("======== end debug scope ========\n");
+}
+
+// is_global returns true if the scope is in global env.
+static bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
+
 static void defvar(struct compiler *c, struct value name)
 {
   if (is_global(&c->scope)) {
     uint8_t constant = make_constant(c, name);
     emit_bytes(c, OP_GLOBAL, constant);
   } else {
-    scope_add(&c->scope, name);
+    scope_add(c, name);
   }
 }
 
@@ -248,7 +247,7 @@ static void setvar(struct compiler *c, struct value name)
 
 static void getvar(struct compiler *c, struct value name)
 {
-  int idx = scope_find(&c->scope, name, FIND_ALL);
+  int idx = scope_find(c, name, FIND_ALL);
   if (idx >= 0) {
     emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
     return;
@@ -488,10 +487,7 @@ static void led_symbol(token_t id, binding_power bp, led_func led)
   symbols[id].led = led;
 }
 
-static void just_symbol(token_t id)
-{
-  symbols[id].bp = BP_NONE;
-}
+static void just_symbol(token_t id) { symbols[id].bp = BP_NONE; }
 
 static void var_declaration(struct compiler *);
 static void block_stmt(struct compiler *);
@@ -510,7 +506,7 @@ static void var_declaration(struct compiler *c)
   struct value name
       = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
 
-  if (scope_find(&c->scope, name, FIND_CUR) != -1) {
+  if (scope_find(c, name, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
@@ -539,7 +535,7 @@ static void var_declaration(struct compiler *c)
 
 static void block_stmt(struct compiler *c)
 {
-  scope_in(&c->scope);
+  scope_in(c);
 
   while (!check(c, TK_RIGHT_BRACE) && !check(c, TK_EOF)) {
     declaration(c);
@@ -549,11 +545,7 @@ static void block_stmt(struct compiler *c)
   }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after block.");
 
-  int poped = scope_out(&c->scope);
-  // Synchronize run-time stack with scope.
-  for (int i = 0; i < poped; i++) {
-    emit_byte(c, OP_POP);
-  }
+  scope_out(c);
 }
 
 static void if_stmt(struct compiler *c)
@@ -597,7 +589,7 @@ static void while_stmt(struct compiler *c)
 
 static void for_stmt(struct compiler *c)
 {
-  scope_in(&c->scope);
+  scope_in(c);
 
   consume(c, TK_LEFT_PAREN, "Expect '(' after 'for'.");
 
@@ -641,11 +633,7 @@ static void for_stmt(struct compiler *c)
   patch_jmp(c, jmp_when_fail, cur_pos(c));
   emit_byte(c, OP_POP);
 
-  int poped = scope_out(&c->scope);
-  // TODO: make emit pop inside scope_out
-  for (int i = 0; i < poped; i++) {
-    emit_byte(c, OP_POP);
-  }
+  scope_out(c);
 }
 
 static void expr_stmt(struct compiler *c)
@@ -691,7 +679,8 @@ static void declaration(struct compiler *c)
 static void setup()
 {
   static bool done = false;
-  if (done) return;
+  if (done)
+    return;
 
   // literals
   nud_symbol(TK_NIL, BP_NONE, literal);
@@ -702,7 +691,7 @@ static void setup()
   nud_symbol(TK_STRING, BP_NONE, literal);
 
   // operators
-  nud_symbol(TK_BANG, BP_NONE, not);
+  nud_symbol(TK_BANG, BP_NONE, not );
 
   // '-' has nud and led
   nud_symbol(TK_MINUS, BP_TERM, negative);
@@ -761,7 +750,7 @@ static void compiler_init(struct compiler *c, char *src)
   c->error = 0;
 
   lex_init(&c->lexer, src, strlen(src));
-  scope_init(&c->scope);
+  scope_init(c);
   map_init(&c->mconstants);
 
   // initial forward
