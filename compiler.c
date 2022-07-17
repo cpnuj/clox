@@ -98,6 +98,12 @@ static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
   emit_byte(c, b2);
 }
 
+static int add_constant(struct compiler *c, struct value value)
+{
+  value_array_write(c->constants, value);
+  return c->constants->len - 1;
+}
+
 // make_constant returns the idx of constant value. If the value has been
 // created, return its idx. Else, add new constant to compiling chunk.
 static uint8_t make_constant(struct compiler *c, struct value value)
@@ -107,13 +113,14 @@ static uint8_t make_constant(struct compiler *c, struct value value)
   if (map_get(&c->mconstants, value, &vidx)) {
     return (uint8_t)value_as_int(vidx);
   }
-  int constant = chunk_add_constant(c->chunk, value);
+  int constant = add_constant(c, value);
   if (constant > UINT8_MAX) {
     // FIXME: add error
     return 0;
   }
   vidx = value_make_number((double)constant);
   map_put(&c->mconstants, value, vidx);
+#undef value_as_int
   return (uint8_t)constant;
 }
 
@@ -165,14 +172,6 @@ static void scope_out(struct compiler *c)
   scope->cur_depth--;
 }
 
-static void scope_add(struct compiler *c, struct value name)
-{
-  struct scope *scope = &c->scope;
-  scope->sp++;
-  scope->locals[scope->sp].depth = scope->cur_depth;
-  scope->locals[scope->sp].name = name;
-}
-
 static int scope_find_cur(struct scope *scope, struct value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
@@ -205,6 +204,14 @@ static int scope_find(struct compiler *c, struct value name, int method)
   } else {
     return scope_find_cur(&c->scope, name);
   }
+}
+
+static void scope_add(struct compiler *c, struct value name)
+{
+  struct scope *scope = &c->scope;
+  scope->sp++;
+  scope->locals[scope->sp].depth = scope->cur_depth;
+  scope->locals[scope->sp].name = name;
 }
 
 static void scope_debug(struct scope *scope)
@@ -489,7 +496,6 @@ static void led_symbol(token_t id, binding_power bp, led_func led)
 
 static void just_symbol(token_t id) { symbols[id].bp = BP_NONE; }
 
-static void var_declaration(struct compiler *);
 static void block_stmt(struct compiler *);
 static void if_stmt(struct compiler *);
 static void while_stmt(struct compiler *);
@@ -497,41 +503,9 @@ static void for_stmt(struct compiler *);
 static void expr_stmt(struct compiler *);
 static void print_stmt(struct compiler *);
 static void statement(struct compiler *);
+static void var_declaration(struct compiler *);
+static void fun_declaration(struct compiler *);
 static void declaration(struct compiler *);
-
-static void var_declaration(struct compiler *c)
-{
-  consume(c, TK_IDENT, "Expect variable name.");
-  struct token token = prev(c);
-  struct value name
-      = value_make_ident(token_lexem_start(&token), token_lexem_len(&token));
-
-  if (scope_find(c, name, FIND_CUR) != -1) {
-    errorf(c, "Already a variable with this name in this scope.");
-    return;
-  }
-
-  if (match(c, TK_EQUAL)) {
-    struct context initializer = expression(c, BP_NONE);
-
-    bool in_local = !is_global(&c->scope);
-    bool is_own_initializer
-        = initializer.id == TK_IDENT && value_equal(initializer.first, name);
-
-    if (in_local && is_own_initializer) {
-      errorf(c, "Can't read local variable in its own initializer.");
-      return;
-    }
-
-    eval(c, initializer);
-  } else {
-    emit_constant(c, value_make_nil());
-  }
-
-  defvar(c, name);
-
-  consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
-}
 
 static void block_stmt(struct compiler *c)
 {
@@ -667,10 +641,95 @@ static void statement(struct compiler *c)
   }
 }
 
+static void var_declaration(struct compiler *c)
+{
+  consume(c, TK_IDENT, "Expect variable name.");
+  struct context ctx = variable(c);
+  struct value name = ctx.first;
+
+  if (scope_find(c, name, FIND_CUR) != -1) {
+    errorf(c, "Already a variable with this name in this scope.");
+    return;
+  }
+
+  if (match(c, TK_EQUAL)) {
+    struct context initializer = expression(c, BP_NONE);
+
+    bool in_local = !is_global(&c->scope);
+    bool is_own_initializer
+        = initializer.id == TK_IDENT && value_equal(initializer.first, name);
+
+    if (in_local && is_own_initializer) {
+      errorf(c, "Can't read local variable in its own initializer.");
+      return;
+    }
+
+    eval(c, initializer);
+  } else {
+    emit_constant(c, value_make_nil());
+  }
+
+  defvar(c, name);
+
+  consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
+}
+
+static void fun_declaration(struct compiler *c)
+{
+  consume(c, TK_IDENT, "Expect function name.");
+  struct value fname = variable(c).first;
+
+  if (scope_find(c, fname, FIND_CUR) != -1) {
+    errorf(c, "Already a variable with this name in this scope.");
+    return;
+  }
+
+  consume(c, TK_LEFT_PAREN, "Expect '(' after function name.");
+
+  // parse parameters
+  int arity = 0;
+  struct value paras[255];
+  while (match(c, TK_IDENT)) {
+    paras[arity] = variable(c).first;
+    arity++;
+    if (!match(c, TK_COMMA)) {
+      break;
+    }
+  }
+
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
+
+  struct value fun = value_make_fun(arity, value_as_string(fname));
+  emit_constant(c, fun);
+  defvar(c, fname);
+
+  scope_in(c);
+  for (int i = 0; i < arity; i++) {
+    defvar(c, paras[i]);
+  }
+
+  consume(c, TK_LEFT_BRACE, "Expect '{' before function body.");
+
+  // switch compiling chunk
+  struct chunk *enclosing = c->chunk;
+  struct obj_fun *funobj = (struct obj_fun *)value_as_obj(fun);
+  c->chunk = &funobj->chunk;
+
+  block_stmt(c);
+  scope_out(c);
+
+  // debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
+
+  // back to previous compiling chunk
+  c->chunk = enclosing;
+}
+
 static void declaration(struct compiler *c)
 {
   if (match(c, TK_VAR)) {
     var_declaration(c);
+  } else if (match(c, TK_FUN)) {
+    fun_declaration(c);
   } else {
     statement(c);
   }
@@ -757,16 +816,12 @@ static void compiler_init(struct compiler *c, char *src)
   forward(c);
 }
 
-static void compiler_set_chunk(struct compiler *c, struct chunk *chunk)
-{
-  c->chunk = chunk;
-}
-
-int compile(char *src, struct chunk *chunk)
+int compile(char *src, struct chunk *chunk, struct value_list *constants)
 {
   struct compiler c;
   compiler_init(&c, src);
-  compiler_set_chunk(&c, chunk);
+  c.chunk = chunk;
+  c.constants = constants;
 
   while (!match(&c, TK_EOF)) {
     if (c.panic) {
@@ -774,7 +829,9 @@ int compile(char *src, struct chunk *chunk)
     }
     declaration(&c);
   }
-
   emit_byte(&c, OP_RETURN);
+
+  // debug_chunk(chunk, constants, "main");
+
   return c.error;
 }

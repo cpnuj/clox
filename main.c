@@ -12,11 +12,10 @@ struct vm vm;
 
 void interprete(char *src)
 {
-  int err = compile(src, &vm.chunk);
+  int err = compile(src, &vm.chunk, &vm.constants);
   if (err) {
     exit(74);
   }
-  // debug_chunk(&vm.chunk, "hello kitty");
   vm_run(&vm);
   if (vm.error) {
     printf("%s\n", vm.errmsg);

@@ -4,8 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "chunk.h"
+
 enum {
   OBJ_STRING = 1,
+  OBJ_FUN,
 };
 
 struct object {
@@ -35,6 +38,16 @@ struct object *string_take(char *, int);
 struct object *string_concat(struct obj_string *, struct obj_string *);
 uint32_t string_hash(const char *, int);
 bool string_equal(struct obj_string *, struct obj_string *);
+
+// struct obj_fun represents a function object in clox.
+struct obj_fun {
+  struct object base;
+  int arity;
+  struct obj_string *name;
+  struct chunk chunk;
+};
+
+struct object *fun_new(int, struct obj_string *);
 
 void object_print(struct object *);
 

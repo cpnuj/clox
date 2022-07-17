@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "chunk.h"
+#include "value.h"
 
 #define panic(s)                                                               \
   {                                                                            \
@@ -12,11 +13,11 @@
     exit(1);                                                                   \
   }
 
-void debug_chunk(struct chunk *chunk, char *name);
-int debug_instruction(struct chunk *chunk, int offset);
+void debug_chunk(struct chunk *, struct value_list *, char *);
+int debug_instruction(struct chunk *, struct value_list *, int);
 
-int simple_instruction(char *name, int offset);
-int constant_instruction(char *name, struct chunk *chunk, int offset);
-int jmp_instruction(char *name, struct chunk *chunk, int sign, int offset);
+int simple_instruction(char *, int);
+int constant_instruction(char *, struct chunk *, struct value_list *, int);
+int jmp_instruction(char *, struct chunk *, int, int);
 
 #endif

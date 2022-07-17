@@ -1,15 +1,16 @@
 #include "debug.h"
 #include <stdio.h>
 
-void debug_chunk(struct chunk *chunk, char *name)
+void debug_chunk(struct chunk *chunk, struct value_list *constants, char *name)
 {
   printf("== %s ==\n", name);
   for (int offset = 0; offset < chunk->len;) {
-    offset = debug_instruction(chunk, offset);
+    offset = debug_instruction(chunk, constants, offset);
   }
 }
 
-int debug_instruction(struct chunk *chunk, int offset)
+int debug_instruction(struct chunk *chunk, struct value_list *constants,
+                      int offset)
 {
   printf("%04d ", offset);
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -56,19 +57,19 @@ int debug_instruction(struct chunk *chunk, int offset)
     return simple_instruction("OP_POP", offset);
 
   case OP_CONSTANT:
-    return constant_instruction("OP_CONSTANT", chunk, offset);
+    return constant_instruction("OP_CONSTANT", chunk, constants, offset);
   case OP_GLOBAL:
-    return constant_instruction("OP_GLOBAL", chunk, offset);
+    return constant_instruction("OP_GLOBAL", chunk, constants, offset);
   case OP_LOCAL:
     return simple_instruction("OP_LOCAL", offset);
   case OP_SET_GLOBAL:
-    return constant_instruction("OP_SET_GLOBAL", chunk, offset);
+    return constant_instruction("OP_SET_GLOBAL", chunk, constants, offset);
   case OP_GET_GLOBAL:
-    return constant_instruction("OP_GET_GLOBAL", chunk, offset);
+    return constant_instruction("OP_GET_GLOBAL", chunk, constants, offset);
   case OP_SET_LOCAL:
-    return constant_instruction("OP_SET_LOCAL", chunk, offset);
+    return constant_instruction("OP_SET_LOCAL", chunk, constants, offset);
   case OP_GET_LOCAL:
-    return constant_instruction("OP_GET_LOCAL", chunk, offset);
+    return constant_instruction("OP_GET_LOCAL", chunk, constants, offset);
 
   case OP_JMP:
     return jmp_instruction("OP_JMP", chunk, 1, offset);
@@ -89,11 +90,12 @@ int simple_instruction(char *name, int offset)
   return offset + 1;
 }
 
-int constant_instruction(char *name, struct chunk *chunk, int offset)
+int constant_instruction(char *name, struct chunk *chunk,
+                         struct value_list *constants, int offset)
 {
   int constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  value_print(chunk->constants.value[constant]);
+  value_print(constants->value[constant]);
   printf("'\n");
   return offset + 2;
 }

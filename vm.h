@@ -11,6 +11,8 @@ struct vm {
   struct value *sp; // Stack pointer
 
   struct chunk chunk;
+  struct map globals;
+  struct value_list constants;
   struct value stack[STACK_MAX];
 
   int error;

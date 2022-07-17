@@ -3,6 +3,7 @@
 
 #include "chunk.h"
 #include "lexer.h"
+#include "map.h"
 #include "value.h"
 
 // local_var represents a local variable with its name
@@ -23,14 +24,15 @@ struct compiler {
   struct token curr;
   struct token prev;
   struct chunk *chunk; // Compiling chunk
+  struct value_list *constants;
   struct scope scope;
-  struct map mconstants; // map from value to idx in the chunk's constant list
+  struct map mconstants; // map from value to idx in the constant list
 
   int error;
   int panic;
   char errmsg[128];
 };
 
-int compile(char *src, struct chunk *chunk);
+int compile(char *, struct chunk *, struct value_list *);
 
 #endif

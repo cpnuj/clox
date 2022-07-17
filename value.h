@@ -45,8 +45,8 @@ struct value value_make_bool(bool);
 struct value value_make_number(double);
 struct value value_make_object(struct object *);
 struct value value_make_ident(char *, int);
-
-struct value value_make_string(char *str, int len);
+struct value value_make_string(char *, int);
+struct value value_make_fun(int, struct obj_string *);
 
 uint32_t value_hash(struct value);
 bool value_is_false(struct value);

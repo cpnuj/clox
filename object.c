@@ -92,11 +92,27 @@ bool string_equal(struct obj_string *s1, struct obj_string *s2)
   return strcmp(s1->str, s2->str) == 0;
 }
 
+struct object *fun_new(int arity, struct obj_string *name)
+{
+  struct obj_fun *obj;
+
+  obj = (struct obj_fun *)reallocate(NULL, 0, sizeof(struct obj_fun));
+  object_init((struct object *)obj, OBJ_FUN, name->base.hash);
+
+  obj->arity = arity;
+  obj->name = name;
+
+  return (struct object *)obj;
+}
+
 void object_print(struct object *obj)
 {
   switch (obj->type) {
   case OBJ_STRING:
     printf("%s", ((struct obj_string *)obj)->str);
+    break;
+  case OBJ_FUN:
+    printf("<fn %s>", ((struct obj_fun *)obj)->name->str);
     break;
   }
 }

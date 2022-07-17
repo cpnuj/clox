@@ -92,7 +92,8 @@
 ./test/logical_operator/and_truth.lox
 ./test/logical_operator/or.lox
 ./test/logical_operator/and.lox
+./test/closure/unused_closure.lox
 ./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 97 Pass Rate: 36.60%
+=== Total: 265 Passed: 98 Pass Rate: 36.98%

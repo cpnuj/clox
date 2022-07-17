@@ -38,6 +38,8 @@ void vm_init(struct vm *vm)
   vm->sp = vm->stack - 1;
   vm->error = 0;
   chunk_init(&vm->chunk);
+  value_array_init(&vm->constants);
+  map_init(&vm->globals);
 }
 
 void vm_push(struct vm *vm, struct value v)
@@ -121,7 +123,7 @@ uint8_t fetch_code(struct vm *vm)
 struct value fetch_constant(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  return vm->chunk.constants.value[off];
+  return vm->constants.value[off];
 }
 
 int fetch_int16(struct vm *vm)
@@ -299,7 +301,7 @@ void op_binary(struct vm *vm, uint8_t op)
 #undef BINARY_OP_LOGIC
 }
 
-static struct map *globals(struct vm *vm) { return &vm->chunk.globals; }
+static struct map *globals(struct vm *vm) { return &vm->globals; }
 
 void op_global(struct vm *vm)
 {
@@ -380,7 +382,7 @@ static void vm_debug(struct vm *vm)
 {
   printf("======= DEBUG VM ======\n");
   printf("PC: %4d NEXT OP: ", vm->pc);
-  debug_instruction(&vm->chunk, vm->pc);
+  // debug_instruction(&vm->chunk, vm->pc);
   printf("STACK\n");
   for (struct value *i = vm->stack; i <= vm->sp; i++) {
     value_print(*i);

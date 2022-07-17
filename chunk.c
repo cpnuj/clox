@@ -1,5 +1,6 @@
+#include <assert.h>
+
 #include "chunk.h"
-#include "debug.h"
 #include "memory.h"
 
 void chunk_init(struct chunk *chunk)
@@ -8,8 +9,6 @@ void chunk_init(struct chunk *chunk)
   chunk->cap = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
-  value_array_init(&chunk->constants);
-  map_init(&chunk->globals);
 }
 
 void chunk_add(struct chunk *chunk, uint8_t byte, int line)
@@ -27,23 +26,14 @@ void chunk_add(struct chunk *chunk, uint8_t byte, int line)
 
 void chunk_set(struct chunk *chunk, int offset, uint8_t byte)
 {
-  if (offset >= chunk->len) {
-    panic("Programming error: chunk_set offset > chunk->len.");
-  }
+  assert(offset < chunk->len);
   chunk->code[offset] = byte;
 }
 
 void chunk_free(struct chunk *chunk)
 {
-  value_array_free(&chunk->constants);
   free_array(uint8_t, chunk->code, chunk->cap);
   chunk_init(chunk);
-}
-
-int chunk_add_constant(struct chunk *chunk, struct value value)
-{
-  value_array_write(&chunk->constants, value);
-  return chunk->constants.len - 1;
 }
 
 int chunk_len(struct chunk *chunk) { return chunk->len; }

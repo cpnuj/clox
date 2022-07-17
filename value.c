@@ -53,6 +53,14 @@ struct value value_make_string(char *str, int len)
   return value;
 }
 
+struct value value_make_fun(int arity, struct obj_string *name)
+{
+  struct value value;
+  value.type = VT_OBJ;
+  value.as.obj = fun_new(arity, name);
+  return value;
+}
+
 void value_array_init(struct value_list *va)
 {
   va->len = 0;
