@@ -1,8 +1,8 @@
 # clox
 
-```
 CFG for program: 
 
+```
 program        → declaration* EOF ;
 
 declaration → varDecl
@@ -39,4 +39,36 @@ forStmt     → "for" "(" (varDecl | exprStmt | ";") expression? ";" expression?
 returnStmt  → "return" expression? ";" ;
 
 classStmt   → "class" IDENTIFIER "{" function* "}" ;
+```
+
+CFG for expression:
+
+```
+expression     → assignment ;
+
+assignment     → ( call "." )? IDENTIFIER "=" assignment ;
+               | logic_or ;
+
+logic_or       → logic_and ("or" logic_and)* ;
+
+logic_and      → equality ("and" equality)* ;
+
+equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+
+comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+
+term           → factor ( ( "-" | "+" ) factor )* ;
+
+factor         → unary ( ( "/" | "*" ) unary )* ;
+
+unary          → ( "!" | "-" ) unary
+               | call ;
+
+call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
+
+primary        → NUMBER | STRING | "true" | "false" | "nil"
+               | "(" expression ")"
+               | IDENTIFIER ;
+
+arguments      → expression ("," expression)*
 ```

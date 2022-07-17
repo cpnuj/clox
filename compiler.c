@@ -482,9 +482,9 @@ static struct context infix_or(struct compiler *c, struct context left)
   return empty_context(TK_OR);
 }
 
-static void nud_symbol(token_t id, binding_power bp, nud_func nud)
+static void nud_symbol(token_t id, nud_func nud)
 {
-  symbols[id].bp = bp;
+  symbols[id].bp = BP_NONE;
   symbols[id].nud = nud;
 }
 
@@ -744,18 +744,18 @@ static void setup()
     return;
 
   // literals
-  nud_symbol(TK_NIL, BP_NONE, literal);
-  nud_symbol(TK_TRUE, BP_NONE, literal);
-  nud_symbol(TK_FALSE, BP_NONE, literal);
-  nud_symbol(TK_NUMBER, BP_NONE, literal);
-  nud_symbol(TK_IDENT, BP_NONE, variable);
-  nud_symbol(TK_STRING, BP_NONE, literal);
+  nud_symbol(TK_NIL, literal);
+  nud_symbol(TK_TRUE, literal);
+  nud_symbol(TK_FALSE, literal);
+  nud_symbol(TK_NUMBER, literal);
+  nud_symbol(TK_STRING, literal);
+  nud_symbol(TK_IDENT, variable);
 
   // operators
-  nud_symbol(TK_BANG, BP_NONE, not );
+  nud_symbol(TK_BANG, not);
 
   // '-' has nud and led
-  nud_symbol(TK_MINUS, BP_TERM, negative);
+  nud_symbol(TK_MINUS, negative);
   led_symbol(TK_MINUS, BP_TERM, infix);
   led_symbol(TK_PLUS, BP_TERM, infix);
 
@@ -776,7 +776,7 @@ static void setup()
   led_symbol(TK_EQUAL, BP_ASSIGNMENT, assignment);
 
   // '(' has nud
-  nud_symbol(TK_LEFT_PAREN, BP_NONE, group);
+  nud_symbol(TK_LEFT_PAREN, group);
 
   // others
   just_symbol(TK_RIGHT_PAREN);
