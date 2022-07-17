@@ -70,6 +70,7 @@
 ./test/variable/shadow_global.lox
 ./test/variable/uninitialized.lox
 ./test/variable/use_global_in_initializer.lox
+./test/variable/early_bound.lox
 ./test/assignment/grouping.lox
 ./test/assignment/syntax.lox
 ./test/assignment/infix_operator.lox
@@ -92,8 +93,17 @@
 ./test/logical_operator/and_truth.lox
 ./test/logical_operator/or.lox
 ./test/logical_operator/and.lox
+./test/closure/close_over_later_variable.lox
+./test/closure/assign_to_shadowed_later.lox
+./test/closure/shadow_closure_with_local.lox
 ./test/closure/unused_closure.lox
+./test/closure/open_closure_in_function.lox
 ./test/block/empty.lox
 ./test/block/scope.lox
 ./test/print/missing_argument.lox
-=== Total: 265 Passed: 98 Pass Rate: 36.98%
+./test/function/extra_arguments.lox
+./test/function/too_many_parameters.lox
+./test/function/missing_arguments.lox
+./test/function/empty_body.lox
+./test/function/too_many_arguments.lox
+=== Total: 265 Passed: 108 Pass Rate: 40.75%

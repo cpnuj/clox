@@ -19,6 +19,9 @@ bool object_equal(struct object *obj1, struct object *obj2)
   case OBJ_STRING:
     return string_equal(object_as(obj1, struct obj_string),
                         object_as(obj2, struct obj_string));
+  case OBJ_FUN:
+    return string_equal(object_as(obj1, struct obj_fun)->name,
+                        object_as(obj2, struct obj_fun)->name);
   default:
     panic("unknown object type")
   }
@@ -101,6 +104,7 @@ struct object *fun_new(int arity, struct obj_string *name)
 
   obj->arity = arity;
   obj->name = name;
+  chunk_init(&obj->chunk);
 
   return (struct object *)obj;
 }

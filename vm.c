@@ -26,6 +26,8 @@ void op_get_local(struct vm *vm);
 void op_jmp(struct vm *vm);
 void op_jmp_back(struct vm *vm);
 void op_jmp_on_false(struct vm *vm);
+void op_call(struct vm *vm);
+void op_return(struct vm *vm);
 void op_print(struct vm *vm);
 
 static struct map *globals(struct vm *vm);
@@ -34,7 +36,6 @@ static void vm_debug(struct vm *vm);
 
 void vm_init(struct vm *vm)
 {
-  vm->pc = 0;
   vm->sp = vm->stack - 1;
   vm->error = 0;
   chunk_init(&vm->chunk);
@@ -72,11 +73,28 @@ struct value vm_top(struct vm *vm)
   return *vm->sp;
 }
 
+static inline struct frame *cur_frame(struct vm *vm)
+{
+  return &vm->frames[vm->cur_frame];
+}
+
+static inline void frame_push(struct vm *vm, struct chunk *chunk)
+{
+  vm->cur_frame++;
+  vm->frames[vm->cur_frame].pc = 0;
+  vm->frames[vm->cur_frame].chunk = chunk;
+}
+
+static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
+
 void vm_run(struct vm *vm)
 {
+  vm->done = 0;
+  vm->cur_frame = -1;
+  frame_push(vm, &vm->chunk);
   while (1) {
     // vm_debug(vm);
-    if (vm->pc >= vm->chunk.len) {
+    if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
       vm_error(vm, "struct vm error: pc out of bound");
     }
     if (vm->error) {
@@ -85,10 +103,10 @@ void vm_run(struct vm *vm)
       return;
     }
     uint8_t instruction = fetch_code(vm);
-    if (instruction == OP_RETURN) {
+    run_instruction(vm, instruction);
+    if (vm->done) {
       return;
     }
-    run_instruction(vm, instruction);
   }
 }
 
@@ -104,19 +122,19 @@ void vm_errorf(struct vm *vm, char *format, ...)
   va_list ap;
   va_start(ap, format);
   int printed = vsprintf(vm->errmsg, format, ap);
-  int err_idx = vm->pc - 1;
+  int err_idx = cur_frame(vm)->pc - 1;
   sprintf(vm->errmsg + printed, "\n[line %d] in script",
-          vm->chunk.lines[err_idx]);
+          cur_frame(vm)->chunk->lines[err_idx]);
 }
 
 // fetch_code fetch and return the next code from vm chunk.
 uint8_t fetch_code(struct vm *vm)
 {
-  if (vm->pc >= vm->chunk.len) {
+  if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
     panic("struct vm error: fetch_code overflow");
   }
-  uint8_t code = vm->chunk.code[vm->pc];
-  vm->pc++;
+  uint8_t code = cur_frame(vm)->chunk->code[cur_frame(vm)->pc];
+  cur_frame(vm)->pc++;
   return code;
 }
 
@@ -180,6 +198,11 @@ void run_instruction(struct vm *vm, uint8_t i)
     return op_jmp_back(vm);
   case OP_JMP_ON_FALSE:
     return op_jmp_on_false(vm);
+
+  case OP_CALL:
+    return op_call(vm);
+  case OP_RETURN:
+    return op_return(vm);
 
   case OP_PRINT:
     return op_print(vm);
@@ -355,16 +378,37 @@ void op_get_local(struct vm *vm)
   vm_push(vm, *plocal);
 }
 
-void op_jmp(struct vm *vm) { vm->pc += fetch_int16(vm); }
+void op_jmp(struct vm *vm) { cur_frame(vm)->pc += fetch_int16(vm); }
 
-void op_jmp_back(struct vm *vm) { vm->pc -= fetch_int16(vm); }
+void op_jmp_back(struct vm *vm) { cur_frame(vm)->pc -= fetch_int16(vm); }
 
 // op_jmp_on_false does not pop the value
 void op_jmp_on_false(struct vm *vm)
 {
   int offset = fetch_int16(vm);
   if (value_is_false(vm_top(vm))) {
-    vm->pc += offset;
+    cur_frame(vm)->pc += offset;
+  }
+}
+
+void op_call(struct vm *vm)
+{
+  struct obj_fun *callee = (struct obj_fun *)value_as_obj(vm_pop(vm));
+  uint8_t arity = fetch_code(vm);
+  if (arity != callee->arity) {
+    vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
+  }
+  frame_push(vm, &callee->chunk);
+}
+
+void op_return(struct vm *vm)
+{
+  // TODO: make return value work
+  vm_push(vm, value_make_nil());
+
+  frame_pop(vm);
+  if (vm->cur_frame < 0) {
+    vm->done = 1;
   }
 }
 
@@ -381,7 +425,7 @@ void op_print(struct vm *vm)
 static void vm_debug(struct vm *vm)
 {
   printf("======= DEBUG VM ======\n");
-  printf("PC: %4d NEXT OP: ", vm->pc);
+  printf("PC: %4d NEXT OP: ", cur_frame(vm)->pc);
   // debug_instruction(&vm->chunk, vm->pc);
   printf("STACK\n");
   for (struct value *i = vm->stack; i <= vm->sp; i++) {

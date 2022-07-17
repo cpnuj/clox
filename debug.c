@@ -67,9 +67,9 @@ int debug_instruction(struct chunk *chunk, struct value_list *constants,
   case OP_GET_GLOBAL:
     return constant_instruction("OP_GET_GLOBAL", chunk, constants, offset);
   case OP_SET_LOCAL:
-    return constant_instruction("OP_SET_LOCAL", chunk, constants, offset);
+    return constant_instruction("OP_SET_LOCAL", chunk, NULL, offset);
   case OP_GET_LOCAL:
-    return constant_instruction("OP_GET_LOCAL", chunk, constants, offset);
+    return constant_instruction("OP_GET_LOCAL", chunk, NULL, offset);
 
   case OP_JMP:
     return jmp_instruction("OP_JMP", chunk, 1, offset);
@@ -77,6 +77,9 @@ int debug_instruction(struct chunk *chunk, struct value_list *constants,
     return jmp_instruction("OP_JMP_BACK", chunk, -1, offset);
   case OP_JMP_ON_FALSE:
     return jmp_instruction("OP_JMP_ON_FALSE", chunk, 1, offset);
+
+  case OP_CALL:
+    return constant_instruction("OP_CALL", chunk, NULL, offset);
 
   default:
     printf("Unknown opcode %d\n", instruction);
@@ -95,7 +98,9 @@ int constant_instruction(char *name, struct chunk *chunk,
 {
   int constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  value_print(constants->value[constant]);
+  if (constants != NULL) {
+    value_print(constants->value[constant]);
+  }
   printf("'\n");
   return offset + 2;
 }

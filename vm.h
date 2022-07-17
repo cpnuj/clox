@@ -4,19 +4,29 @@
 #include "chunk.h"
 #include "value.h"
 
+struct frame {
+  int pc;
+  int arity;
+  struct chunk *chunk;
+};
+
 #define STACK_MAX 256
+#define FRAME_MAX 256
 
 struct vm {
-  int pc;           // Program counter
-  struct value *sp; // Stack pointer
+  int done;
+  int error;
+  char errmsg[128];
 
   struct chunk chunk;
   struct map globals;
   struct value_list constants;
-  struct value stack[STACK_MAX];
 
-  int error;
-  char errmsg[128];
+  struct value stack[STACK_MAX];
+  struct value *sp; // Stack pointer
+
+  struct frame frames[FRAME_MAX];
+  int cur_frame;
 };
 
 void vm_init(struct vm *vm);

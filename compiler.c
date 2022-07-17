@@ -482,6 +482,26 @@ static struct context infix_or(struct compiler *c, struct context left)
   return empty_context(TK_OR);
 }
 
+static struct context call(struct compiler *c, struct context left)
+{
+  int arity = 0;
+  if (!check(c, TK_RIGHT_PAREN)) {
+    do {
+      eval(c, expression(c, BP_NONE));
+      arity++;
+      if (arity > UINT8_MAX) {
+        errorf(c, "Can't have more than 255 arguments.");
+      }
+    } while (match(c, TK_COMMA));
+  }
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after arguments.");
+
+  eval(c, left);
+  emit_bytes(c, OP_CALL, (uint8_t)arity);
+
+  return empty_context(TK_LEFT_PAREN);
+}
+
 static void nud_symbol(token_t id, nud_func nud)
 {
   symbols[id].bp = BP_NONE;
@@ -690,6 +710,10 @@ static void fun_declaration(struct compiler *c)
   int arity = 0;
   struct value paras[255];
   while (match(c, TK_IDENT)) {
+    if (arity >= 255) {
+      errorf(c, "Can't have more than 255 parameters.");
+      return;
+    }
     paras[arity] = variable(c).first;
     arity++;
     if (!match(c, TK_COMMA)) {
@@ -717,6 +741,7 @@ static void fun_declaration(struct compiler *c)
 
   block_stmt(c);
   scope_out(c);
+  emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
   debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
@@ -752,7 +777,7 @@ static void setup()
   nud_symbol(TK_IDENT, variable);
 
   // operators
-  nud_symbol(TK_BANG, not);
+  nud_symbol(TK_BANG, not );
 
   // '-' has nud and led
   nud_symbol(TK_MINUS, negative);
@@ -777,6 +802,7 @@ static void setup()
 
   // '(' has nud
   nud_symbol(TK_LEFT_PAREN, group);
+  led_symbol(TK_LEFT_PAREN, BP_CALL, call);
 
   // others
   just_symbol(TK_RIGHT_PAREN);
