@@ -718,7 +718,9 @@ static void fun_declaration(struct compiler *c)
   block_stmt(c);
   scope_out(c);
 
-  // debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
+#ifdef DEBUG
+  debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
+#endif
 
   // back to previous compiling chunk
   c->chunk = enclosing;
@@ -831,7 +833,9 @@ int compile(char *src, struct chunk *chunk, struct value_list *constants)
   }
   emit_byte(&c, OP_RETURN);
 
-  // debug_chunk(chunk, constants, "main");
+#ifdef DEBUG
+  debug_chunk(chunk, constants, "main");
+#endif
 
   return c.error;
 }

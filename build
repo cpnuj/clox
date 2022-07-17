@@ -1,3 +1,9 @@
 #! /bin/bash
 
-gcc *.c -g -o clox
+CXXFLAGS=''
+
+if [ "X$1" = 'X-debug' ]; then
+  CXXFLAGS='-g -DDEBUG'
+fi
+
+gcc *.c $CXXFLAGS -o clox
