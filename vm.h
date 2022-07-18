@@ -8,6 +8,7 @@ struct frame {
   int pc;
   int arity;
   struct chunk *chunk;
+  struct value *bp; // base pointer of this frame
 };
 
 #define STACK_MAX 256

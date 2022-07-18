@@ -153,6 +153,7 @@ static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
 
 static void scope_init(struct compiler *c)
 {
+  c->scope.bp = -1;
   c->scope.sp = -1;
   c->scope.cur_depth = 0;
 }
@@ -172,14 +173,20 @@ static void scope_out(struct compiler *c)
   scope->cur_depth--;
 }
 
+static inline int scope_cursp(struct compiler *c) { return c->scope.sp; }
+
+static inline int scope_curbp(struct compiler *c) { return c->scope.bp; }
+
+static inline void scope_setbp(struct compiler *c, int bp) { c->scope.bp = bp; }
+
 static int scope_find_cur(struct scope *scope, struct value name)
 {
-  for (int at = scope->sp; at >= 0; at--) {
+  for (int at = scope->sp; at > scope->bp; at--) {
     if (scope->locals[at].depth != scope->cur_depth) {
       return -1;
     }
     if (value_equal(scope->locals[at].name, name)) {
-      return at;
+      return at - scope->bp;
     }
   }
   return -1;
@@ -187,9 +194,9 @@ static int scope_find_cur(struct scope *scope, struct value name)
 
 static int scope_find_all(struct scope *scope, struct value name)
 {
-  for (int at = scope->sp; at >= 0; at--) {
+  for (int at = scope->sp; at > scope->bp; at--) {
     if (value_equal(scope->locals[at].name, name)) {
-      return at;
+      return at - scope->bp;
     }
   }
   return -1;
@@ -727,6 +734,9 @@ static void fun_declaration(struct compiler *c)
   emit_constant(c, fun);
   defvar(c, fname);
 
+  // enter new scope and set scope base pointer
+  int oldbp = scope_curbp(c);
+  scope_setbp(c, scope_cursp(c));
   scope_in(c);
   for (int i = 0; i < arity; i++) {
     defvar(c, paras[i]);
@@ -740,12 +750,14 @@ static void fun_declaration(struct compiler *c)
   c->chunk = &funobj->chunk;
 
   block_stmt(c);
-  scope_out(c);
-  emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
   debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
 #endif
+
+  scope_out(c);
+  scope_setbp(c, oldbp);
+  emit_byte(c, OP_RETURN);
 
   // back to previous compiling chunk
   c->chunk = enclosing;

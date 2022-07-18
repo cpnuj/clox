@@ -78,11 +78,12 @@ static inline struct frame *cur_frame(struct vm *vm)
   return &vm->frames[vm->cur_frame];
 }
 
-static inline void frame_push(struct vm *vm, struct chunk *chunk)
+static inline void frame_push(struct vm *vm, int arity, struct chunk *chunk)
 {
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
   vm->frames[vm->cur_frame].chunk = chunk;
+  vm->frames[vm->cur_frame].bp = vm->sp - arity;
 }
 
 static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
@@ -91,7 +92,7 @@ void vm_run(struct vm *vm)
 {
   vm->done = 0;
   vm->cur_frame = -1;
-  frame_push(vm, &vm->chunk);
+  frame_push(vm, 0, &vm->chunk);
   while (1) {
     // vm_debug(vm);
     if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
@@ -365,7 +366,7 @@ void op_get_global(struct vm *vm)
 void op_set_local(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  struct value *plocal = &vm->stack[off];
+  struct value *plocal = &cur_frame(vm)->bp[off];
   struct value value = vm_pop(vm);
   *plocal = value;
   vm_push(vm, value);
@@ -374,7 +375,7 @@ void op_set_local(struct vm *vm)
 void op_get_local(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  struct value *plocal = &vm->stack[off];
+  struct value *plocal = &cur_frame(vm)->bp[off];
   vm_push(vm, *plocal);
 }
 
@@ -398,7 +399,7 @@ void op_call(struct vm *vm)
   if (arity != callee->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
   }
-  frame_push(vm, &callee->chunk);
+  frame_push(vm, callee->arity, &callee->chunk);
 }
 
 void op_return(struct vm *vm)
