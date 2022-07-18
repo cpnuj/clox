@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# An example hook script to verify what is about to be committed.
+# Called by "git commit" with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-commit".
+
+echo "Running pre-commit."
+
+echo "Recording test results to PASSTESTS."
+./build > /dev/null
+./tools/test.py ./clox ./test/ > /dev/null
+sort PASSTESTS > PASSTESTS.tmp
+mv PASSTESTS.tmp PASSTESTS
+
+find_fail="git diff PASSTESTS | grep '^\-.*\.lox$'"
+failed_tests=$(eval "$find_fail")
+
+if [ $? -eq 0 ]; then
+  echo "Passed tests in old commit fail, please check:"
+  for ftest in $failed_tests
+  do
+    echo $ftest
+  done
+  exit 78
+fi
+
+git add PASSTESTS
