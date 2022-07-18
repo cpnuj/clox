@@ -10,6 +10,10 @@
 ./test/block/scope.lox
 ./test/bool/equality.lox
 ./test/bool/not.lox
+./test/call/bool.lox
+./test/call/nil.lox
+./test/call/num.lox
+./test/call/string.lox
 ./test/closure/assign_to_shadowed_later.lox
 ./test/closure/unused_closure.lox
 ./test/comments/line_at_eof.lox
@@ -19,13 +23,19 @@
 ./test/empty_file.lox
 ./test/for/class_in_body.lox
 ./test/for/fun_in_body.lox
+./test/for/return_inside.lox
 ./test/for/scope.lox
 ./test/for/statement_increment.lox
+./test/for/syntax.lox
 ./test/for/var_in_body.lox
 ./test/function/empty_body.lox
 ./test/function/extra_arguments.lox
 ./test/function/frame.lox
 ./test/function/missing_arguments.lox
+./test/function/mutual_recursion.lox
+./test/function/nested_call_with_arguments.lox
+./test/function/parameters.lox
+./test/function/recursion.lox
 ./test/function/too_many_arguments.lox
 ./test/function/too_many_parameters.lox
 ./test/if/class_in_else.lox
@@ -79,6 +89,12 @@
 ./test/operator/subtract_num_nonnum.lox
 ./test/precedence.lox
 ./test/print/missing_argument.lox
+./test/return/after_else.lox
+./test/return/after_if.lox
+./test/return/after_while.lox
+./test/return/at_top_level.lox
+./test/return/in_function.lox
+./test/return/return_nil_if_no_value.lox
 ./test/string/literals.lox
 ./test/string/multiline.lox
 ./test/variable/duplicate_local.lox
@@ -102,6 +118,7 @@
 ./test/variable/use_this_as_var.lox
 ./test/while/class_in_body.lox
 ./test/while/fun_in_body.lox
+./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 106 Pass Rate: 39.85%
+=== Total: 266 Passed: 123 Pass Rate: 46.24%

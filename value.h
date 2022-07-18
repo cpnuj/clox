@@ -36,6 +36,9 @@ struct value {
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
 
+#define is_fun(value)                                                          \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_FUN))
+
 // Macros cast value to specific object
 #define value_as_string(value)                                                 \
   (object_as(value_as_obj(value), struct obj_string))

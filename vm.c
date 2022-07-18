@@ -394,23 +394,34 @@ void op_jmp_on_false(struct vm *vm)
 
 void op_call(struct vm *vm)
 {
-  struct obj_fun *callee = (struct obj_fun *)value_as_obj(vm_pop(vm));
   uint8_t arity = fetch_code(vm);
+  struct value vcallee = *(vm->sp - arity);
+  if (!is_fun(vcallee)) {
+    vm_errorf(vm, "Can only call functions and classes.");
+    return;
+  }
+
+  struct obj_fun *callee = (struct obj_fun *)value_as_obj(vcallee);
   if (arity != callee->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
+    return;
   }
+
   frame_push(vm, callee->arity, &callee->chunk);
 }
 
 void op_return(struct vm *vm)
 {
-  // TODO: make return value work
-  vm_push(vm, value_make_nil());
-
+  struct value retval = vm_pop(vm);
+  vm->sp = cur_frame(vm)->bp;
   frame_pop(vm);
   if (vm->cur_frame < 0) {
     vm->done = 1;
+    return;
   }
+  // pop callee
+  vm_pop(vm);
+  vm_push(vm, retval);
 }
 
 void op_print(struct vm *vm)
@@ -427,7 +438,7 @@ static void vm_debug(struct vm *vm)
 {
   printf("======= DEBUG VM ======\n");
   printf("PC: %4d NEXT OP: ", cur_frame(vm)->pc);
-  // debug_instruction(&vm->chunk, vm->pc);
+  debug_instruction(cur_frame(vm)->chunk, &vm->constants, cur_frame(vm)->pc);
   printf("STACK\n");
   for (struct value *i = vm->stack; i <= vm->sp; i++) {
     value_print(*i);

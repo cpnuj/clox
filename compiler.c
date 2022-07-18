@@ -9,20 +9,6 @@
 #include "debug.h"
 #include "value.h"
 
-typedef uint8_t binding_power;
-
-#define BP_NONE 0
-#define BP_ASSIGNMENT 10 // =
-#define BP_OR 20         // or
-#define BP_AND 30        // and
-#define BP_EQUALITY 40   // == !=
-#define BP_COMPARISON 50 // < > <= >=
-#define BP_TERM 60       // + -
-#define BP_FACTOR 70     // * /
-#define BP_UNARY 80      // ! -
-#define BP_CALL 90       // . ()
-#define BP_PRIMARY 100
-
 static void error_at(struct compiler *c, struct token tk, char *msg)
 {
   if (c->panic)
@@ -273,6 +259,20 @@ static void getvar(struct compiler *c, struct value name)
 
 // Pratt parsing algorithm
 
+typedef uint8_t binding_power;
+
+#define BP_NONE 0
+#define BP_ASSIGNMENT 10 // =
+#define BP_OR 20         // or
+#define BP_AND 30        // and
+#define BP_EQUALITY 40   // == !=
+#define BP_COMPARISON 50 // < > <= >=
+#define BP_TERM 60       // + -
+#define BP_FACTOR 70     // * /
+#define BP_UNARY 80      // ! -
+#define BP_CALL 90       // . ()
+#define BP_PRIMARY 100
+
 // struct context stores the parsing info of context expression,
 // used by led_func.
 // In our one-pass compiler, in general we parse a series of tokens
@@ -416,6 +416,20 @@ static struct context group(struct compiler *c)
   return empty_context(TK_LEFT_PAREN);
 }
 
+static struct context ret(struct compiler *c)
+{
+  if (is_global(&c->scope)) {
+    errorf(c, "Can't return from top-level code.");
+  }
+  if (!check(c, TK_SEMICOLON)) {
+    eval(c, expression(c, BP_NONE));
+  } else {
+    emit_constant(c, value_make_nil());
+  }
+  emit_return(c);
+  return empty_context(TK_RETURN);
+}
+
 static struct context assignment(struct compiler *c, struct context left)
 {
   if (left.id != TK_IDENT) {
@@ -491,6 +505,8 @@ static struct context infix_or(struct compiler *c, struct context left)
 
 static struct context call(struct compiler *c, struct context left)
 {
+  eval(c, left);
+
   int arity = 0;
   if (!check(c, TK_RIGHT_PAREN)) {
     do {
@@ -503,7 +519,6 @@ static struct context call(struct compiler *c, struct context left)
   }
   consume(c, TK_RIGHT_PAREN, "Expect ')' after arguments.");
 
-  eval(c, left);
   emit_bytes(c, OP_CALL, (uint8_t)arity);
 
   return empty_context(TK_LEFT_PAREN);
@@ -748,6 +763,8 @@ static void fun_declaration(struct compiler *c)
   c->chunk = &funobj->chunk;
 
   block_stmt(c);
+  emit_constant(c, value_make_nil());
+  emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
   debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
@@ -755,7 +772,6 @@ static void fun_declaration(struct compiler *c)
 
   scope_out(c);
   scope_setbp(c, oldbp);
-  emit_byte(c, OP_RETURN);
 
   // back to previous compiling chunk
   c->chunk = enclosing;
@@ -825,7 +841,9 @@ static void setup()
   // Keywords
   just_symbol(TK_FOR);
   just_symbol(TK_PRINT);
-  just_symbol(TK_RETURN);
+
+  nud_symbol(TK_RETURN, ret);
+
   just_symbol(TK_CLASS);
   just_symbol(TK_THIS);
   just_symbol(TK_ELSE);
@@ -867,6 +885,7 @@ int compile(char *src, struct chunk *chunk, struct value_list *constants)
     }
     declaration(&c);
   }
+  emit_constant(&c, value_make_nil());
   emit_byte(&c, OP_RETURN);
 
 #ifdef DEBUG
