@@ -559,15 +559,13 @@ static void if_stmt(struct compiler *c)
   emit_byte(c, OP_POP);
   statement(c);
 
+  int then_jmp_pos = emit_jmp(c, OP_JMP);
+  patch_jmp(c, jmp_pos, cur_pos(c));
+  emit_byte(c, OP_POP);
   if (match(c, TK_ELSE)) {
-    int then_jmp_pos = emit_jmp(c, OP_JMP);
-    patch_jmp(c, jmp_pos, cur_pos(c));
-    emit_byte(c, OP_POP);
     statement(c);
-    patch_jmp(c, then_jmp_pos, cur_pos(c));
-  } else {
-    patch_jmp(c, jmp_pos, cur_pos(c));
   }
+  patch_jmp(c, then_jmp_pos, cur_pos(c));
 }
 
 static void while_stmt(struct compiler *c)
