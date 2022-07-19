@@ -25,6 +25,7 @@ def report():
     print(summary)
 
     f = open("PASSTESTS", "w")
+    Passed.sort()
     for passed in Passed:
       f.write(passed)
       f.write("\n")

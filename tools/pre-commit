@@ -12,8 +12,6 @@ echo "Running pre-commit."
 echo "Recording test results to PASSTESTS."
 ./build > /dev/null
 ./tools/test.py ./clox ./test/ > /dev/null
-sort PASSTESTS > PASSTESTS.tmp
-mv PASSTESTS.tmp PASSTESTS
 
 find_fail="git diff PASSTESTS | grep '^\-.*\.lox$'"
 failed_tests=$(eval "$find_fail")
