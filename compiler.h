@@ -34,6 +34,6 @@ struct compiler {
   char errmsg[128];
 };
 
-int compile(char *, struct chunk *, struct value_list *);
+int compile(char *, struct obj_fun *, struct value_list *);
 
 #endif

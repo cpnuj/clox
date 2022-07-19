@@ -751,6 +751,7 @@ static void fun_declaration(struct compiler *c)
   int oldbp = scope_curbp(c);
   scope_setbp(c, scope_cursp(c));
   scope_in(c);
+  defvar(c, fname);
   for (int i = 0; i < arity; i++) {
     defvar(c, paras[i]);
   }
@@ -866,13 +867,15 @@ static void compiler_init(struct compiler *c, char *src)
 
   lex_init(&c->lexer, src, strlen(src));
   scope_init(c);
+  scope_add(c, value_make_string("main", 4));
   map_init(&c->mconstants);
 
   // initial forward
   forward(c);
 }
 
-int compile(char *src, struct chunk *chunk, struct value_list *constants)
+static int compile_chunk(char *src, struct chunk *chunk,
+                         struct value_list *constants)
 {
   struct compiler c;
   compiler_init(&c, src);
@@ -888,9 +891,16 @@ int compile(char *src, struct chunk *chunk, struct value_list *constants)
   emit_constant(&c, value_make_nil());
   emit_byte(&c, OP_RETURN);
 
+  return c.error;
+}
+
+int compile(char *src, struct obj_fun *fun, struct value_list *constants)
+{
+  int err = compile_chunk(src, &fun->chunk, constants);
+
 #ifdef DEBUG
-  debug_chunk(chunk, constants, "main");
+  debug_chunk(&fun->chunk, constants, fun->name->str);
 #endif
 
-  return c.error;
+  return err;
 }

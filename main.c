@@ -12,7 +12,7 @@ struct vm vm;
 
 void interprete(char *src)
 {
-  int err = compile(src, &vm.chunk, &vm.constants);
+  int err = compile(src, vm.main, &vm.constants);
   if (err) {
     exit(74);
   }

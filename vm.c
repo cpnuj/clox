@@ -38,7 +38,8 @@ void vm_init(struct vm *vm)
 {
   vm->sp = vm->stack - 1;
   vm->error = 0;
-  chunk_init(&vm->chunk);
+  vm->vmain = value_make_fun(0, value_as_string(value_make_string("main", 4)));
+  vm->main = value_as_fun(vm->vmain);
   value_array_init(&vm->constants);
   map_init(&vm->globals);
 }
@@ -83,7 +84,8 @@ static inline void frame_push(struct vm *vm, int arity, struct chunk *chunk)
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
   vm->frames[vm->cur_frame].chunk = chunk;
-  vm->frames[vm->cur_frame].bp = vm->sp - arity;
+  // the first slot of this frame is the fun itself
+  vm->frames[vm->cur_frame].bp = vm->sp - arity - 1;
 }
 
 static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
@@ -92,7 +94,8 @@ void vm_run(struct vm *vm)
 {
   vm->done = 0;
   vm->cur_frame = -1;
-  frame_push(vm, 0, &vm->chunk);
+  vm_push(vm, vm->vmain);
+  frame_push(vm, 0, &vm->main->chunk);
   while (1) {
     // vm_debug(vm);
     if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
@@ -419,8 +422,6 @@ void op_return(struct vm *vm)
     vm->done = 1;
     return;
   }
-  // pop callee
-  vm_pop(vm);
   vm_push(vm, retval);
 }
 
@@ -437,10 +438,12 @@ void op_print(struct vm *vm)
 static void vm_debug(struct vm *vm)
 {
   printf("======= DEBUG VM ======\n");
-  printf("PC: %4d NEXT OP: ", cur_frame(vm)->pc);
+  printf("PC: %4d BP: %4ld NEXT OP: ", cur_frame(vm)->pc,
+         (uint64_t)(cur_frame(vm)->bp - vm->stack));
   debug_instruction(cur_frame(vm)->chunk, &vm->constants, cur_frame(vm)->pc);
   printf("STACK\n");
   for (struct value *i = vm->stack; i <= vm->sp; i++) {
+    printf("%03ld  ", (uint64_t)(i - vm->stack));
     value_print(*i);
     printf("\n");
   }

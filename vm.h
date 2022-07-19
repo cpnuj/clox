@@ -19,7 +19,9 @@ struct vm {
   int error;
   char errmsg[128];
 
-  struct chunk chunk;
+  struct obj_fun *main;
+  struct value vmain;
+
   struct map globals;
   struct value_list constants;
 

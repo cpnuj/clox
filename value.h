@@ -43,6 +43,8 @@ struct value {
 #define value_as_string(value)                                                 \
   (object_as(value_as_obj(value), struct obj_string))
 
+#define value_as_fun(value) (object_as(value_as_obj(value), struct obj_fun))
+
 struct value value_make_nil(void);
 struct value value_make_bool(bool);
 struct value value_make_number(double);
