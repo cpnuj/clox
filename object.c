@@ -118,5 +118,8 @@ void object_print(struct object *obj)
   case OBJ_FUN:
     printf("<fn %s>", ((struct obj_fun *)obj)->name->str);
     break;
+  case OBJ_NATIVE:
+    printf("<native fn>");
+    break;
   }
 }

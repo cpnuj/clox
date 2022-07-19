@@ -9,6 +9,7 @@
 enum {
   OBJ_STRING = 1,
   OBJ_FUN,
+  OBJ_NATIVE,
 };
 
 struct object {

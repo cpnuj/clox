@@ -1,9 +1,11 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "debug.h"
 #include "map.h"
+#include "native.h"
 #include "vm.h"
 
 void vm_error(struct vm *vm, char *errmsg);
@@ -34,6 +36,13 @@ static struct map *globals(struct vm *vm);
 
 static void vm_debug(struct vm *vm);
 
+static void define_native(struct vm *vm, char *name, int arity,
+                          native_fn method)
+{
+  struct value native = value_make_native(arity, method);
+  map_put(&vm->globals, value_make_ident(name, strlen(name)), native);
+}
+
 void vm_init(struct vm *vm)
 {
   vm->sp = vm->stack - 1;
@@ -42,6 +51,8 @@ void vm_init(struct vm *vm)
   vm->main = value_as_fun(vm->vmain);
   value_array_init(&vm->constants);
   map_init(&vm->globals);
+
+  define_native(vm, "clock", 0, native_clock);
 }
 
 void vm_push(struct vm *vm, struct value v)
@@ -395,22 +406,38 @@ void op_jmp_on_false(struct vm *vm)
   }
 }
 
-void op_call(struct vm *vm)
+static void call_fun(struct vm *vm, int arity, struct obj_fun *callee)
 {
-  uint8_t arity = fetch_code(vm);
-  struct value vcallee = *(vm->sp - arity);
-  if (!is_fun(vcallee)) {
-    vm_errorf(vm, "Can only call functions and classes.");
-    return;
-  }
-
-  struct obj_fun *callee = (struct obj_fun *)value_as_obj(vcallee);
   if (arity != callee->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
     return;
   }
-
   frame_push(vm, callee->arity, &callee->chunk);
+}
+
+static void call_native(struct vm *vm, int arity, struct obj_native *native)
+{
+  if (arity != native->arity) {
+    vm_errorf(vm, "Expected %d arguments but got %d.", native->arity, arity);
+    return;
+  }
+  struct value value = native->method(arity, vm->sp - arity + 1);
+  vm->sp -= arity + 1;
+  vm_push(vm, value);
+}
+
+void op_call(struct vm *vm)
+{
+  uint8_t arity = fetch_code(vm);
+  struct value vcallee = *(vm->sp - arity);
+
+  if (is_fun(vcallee)) {
+    call_fun(vm, arity, value_as_fun(vcallee));
+  } else if (is_native(vcallee)) {
+    call_native(vm, arity, value_as_native(vcallee));
+  } else {
+    vm_errorf(vm, "Can only call functions and classes.");
+  }
 }
 
 void op_return(struct vm *vm)

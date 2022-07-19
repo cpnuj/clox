@@ -36,6 +36,7 @@
 ./test/function/mutual_recursion.lox
 ./test/function/nested_call_with_arguments.lox
 ./test/function/parameters.lox
+./test/function/print.lox
 ./test/function/recursion.lox
 ./test/function/too_many_arguments.lox
 ./test/function/too_many_parameters.lox
@@ -122,4 +123,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 124 Pass Rate: 46.62%
+=== Total: 266 Passed: 125 Pass Rate: 46.99%
