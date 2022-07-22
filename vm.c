@@ -47,7 +47,8 @@ void vm_init(struct vm *vm)
 {
   vm->sp = vm->stack - 1;
   vm->error = 0;
-  vm->vmain = value_make_fun(0, value_as_string(value_make_string("main", 4)));
+  vm->vmain
+      = value_make_fun(0, value_as_string(value_make_string("script", 6)));
   vm->main = value_as_fun(vm->vmain);
   value_array_init(&vm->constants);
   map_init(&vm->globals);
@@ -90,13 +91,18 @@ static inline struct frame *cur_frame(struct vm *vm)
   return &vm->frames[vm->cur_frame];
 }
 
-static inline void frame_push(struct vm *vm, int arity, struct chunk *chunk)
+static inline struct chunk *cur_chunk(struct vm *vm)
+{
+  return &cur_frame(vm)->function->chunk;
+}
+
+static inline void frame_push(struct vm *vm, struct obj_fun *function)
 {
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
-  vm->frames[vm->cur_frame].chunk = chunk;
+  vm->frames[vm->cur_frame].function = function;
   // the first slot of this frame is the fun itself
-  vm->frames[vm->cur_frame].bp = vm->sp - arity - 1;
+  vm->frames[vm->cur_frame].bp = vm->sp - function->arity - 1;
 }
 
 static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
@@ -106,10 +112,10 @@ void vm_run(struct vm *vm)
   vm->done = 0;
   vm->cur_frame = -1;
   vm_push(vm, vm->vmain);
-  frame_push(vm, 0, &vm->main->chunk);
+  frame_push(vm, vm->main);
   while (1) {
     // vm_debug(vm);
-    if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
+    if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
       vm_error(vm, "struct vm error: pc out of bound");
     }
     if (vm->error) {
@@ -131,24 +137,38 @@ void vm_error(struct vm *vm, char *errmsg)
   sprintf(vm->errmsg, "%s", errmsg);
 }
 
+static void trace_stack(struct vm *vm)
+{
+  int i;
+  for (i = vm->cur_frame; i >= 0; i--) {
+    struct frame *frame = &vm->frames[i];
+    fprintf(stderr, "[line %d] in %s",
+            frame->function->chunk.lines[frame->pc - 1],
+            frame->function->name->str);
+    if (i != 0) {
+      fprintf(stderr, "()");
+    }
+    fprintf(stderr, "\n");
+  }
+}
+
 void vm_errorf(struct vm *vm, char *format, ...)
 {
   vm->error = 1;
   va_list ap;
   va_start(ap, format);
   int printed = vsprintf(vm->errmsg, format, ap);
-  int err_idx = cur_frame(vm)->pc - 1;
-  sprintf(vm->errmsg + printed, "\n[line %d] in script",
-          cur_frame(vm)->chunk->lines[err_idx]);
+  fprintf(stderr, "%s\n", vm->errmsg);
+  trace_stack(vm);
 }
 
 // fetch_code fetch and return the next code from vm chunk.
 uint8_t fetch_code(struct vm *vm)
 {
-  if (cur_frame(vm)->pc >= cur_frame(vm)->chunk->len) {
+  if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
     panic("struct vm error: fetch_code overflow");
   }
-  uint8_t code = cur_frame(vm)->chunk->code[cur_frame(vm)->pc];
+  uint8_t code = cur_chunk(vm)->code[cur_frame(vm)->pc];
   cur_frame(vm)->pc++;
   return code;
 }
@@ -412,7 +432,7 @@ static void call_fun(struct vm *vm, int arity, struct obj_fun *callee)
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
     return;
   }
-  frame_push(vm, callee->arity, &callee->chunk);
+  frame_push(vm, callee);
 }
 
 static void call_native(struct vm *vm, int arity, struct obj_native *native)
@@ -467,7 +487,7 @@ static void vm_debug(struct vm *vm)
   printf("======= DEBUG VM ======\n");
   printf("PC: %4d BP: %4ld NEXT OP: ", cur_frame(vm)->pc,
          (uint64_t)(cur_frame(vm)->bp - vm->stack));
-  debug_instruction(cur_frame(vm)->chunk, &vm->constants, cur_frame(vm)->pc);
+  debug_instruction(cur_chunk(vm), &vm->constants, cur_frame(vm)->pc);
   printf("STACK\n");
   for (struct value *i = vm->stack; i <= vm->sp; i++) {
     printf("%03ld  ", (uint64_t)(i - vm->stack));

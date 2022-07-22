@@ -31,6 +31,7 @@
 ./test/function/empty_body.lox
 ./test/function/extra_arguments.lox
 ./test/function/frame.lox
+./test/function/local_mutual_recursion.lox
 ./test/function/local_recursion.lox
 ./test/function/missing_arguments.lox
 ./test/function/mutual_recursion.lox
@@ -123,4 +124,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 125 Pass Rate: 46.99%
+=== Total: 266 Passed: 126 Pass Rate: 47.37%

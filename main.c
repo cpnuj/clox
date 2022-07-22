@@ -17,10 +17,6 @@ void interprete(char *src)
     exit(74);
   }
   vm_run(&vm);
-  if (vm.error) {
-    printf("%s\n", vm.errmsg);
-  }
-  // reset error
   vm.error = 0;
 }
 
