@@ -61,6 +61,14 @@ struct value value_make_fun(int arity, struct obj_string *name)
   return value;
 }
 
+struct value value_make_closure(struct obj_fun *proto)
+{
+  struct value value;
+  value.type = VT_OBJ;
+  value.as.obj = closure_new(proto);
+  return value;
+}
+
 void value_array_init(struct value_list *va)
 {
   va->len = 0;

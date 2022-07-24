@@ -109,6 +109,15 @@ struct object *fun_new(int arity, struct obj_string *name)
   return (struct object *)obj;
 }
 
+struct object *closure_new(struct obj_fun *proto)
+{
+  struct obj_closure *closure
+      = (struct obj_closure *)reallocate(NULL, 0, sizeof(struct obj_closure));
+  object_init((struct object *)closure, OBJ_CLOSURE, proto->base.hash);
+  closure->proto = proto;
+  return (struct object *)closure;
+}
+
 void object_print(struct object *obj)
 {
   switch (obj->type) {
@@ -118,8 +127,13 @@ void object_print(struct object *obj)
   case OBJ_FUN:
     printf("<fn %s>", ((struct obj_fun *)obj)->name->str);
     break;
+  case OBJ_CLOSURE:
+    printf("<fn %s>", ((struct obj_closure *)obj)->proto->name->str);
+    break;
   case OBJ_NATIVE:
     printf("<native fn>");
     break;
+  default:
+    panic("unknown object type")
   }
 }

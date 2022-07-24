@@ -9,6 +9,7 @@
 enum {
   OBJ_STRING = 1,
   OBJ_FUN,
+  OBJ_CLOSURE,
   OBJ_NATIVE,
 };
 
@@ -49,6 +50,14 @@ struct obj_fun {
 };
 
 struct object *fun_new(int, struct obj_string *);
+
+// struct obj_closure is created as a running function object in runtime
+struct obj_closure {
+  struct object base;
+  struct obj_fun *proto;
+};
+
+struct object *closure_new(struct obj_fun *proto);
 
 void object_print(struct object *);
 

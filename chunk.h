@@ -34,6 +34,7 @@ typedef enum {
   OP_JMP,          // directly jump
   OP_JMP_BACK,     // directly jump backward
   OP_JMP_ON_FALSE, // condition jump
+  OP_CLOSURE,
   OP_CALL,
 } op_code;
 

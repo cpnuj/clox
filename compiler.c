@@ -744,7 +744,7 @@ static void fun_declaration(struct compiler *c)
   consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
 
   struct value fun = value_make_fun(arity, value_as_string(fname));
-  emit_constant(c, fun);
+  emit_bytes(c, OP_CLOSURE, make_constant(c, fun));
   defvar(c, fname);
 
   // enter new scope and set scope base pointer

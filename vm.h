@@ -7,7 +7,7 @@
 struct frame {
   int pc;
   struct value *bp; // base pointer of this frame
-  struct obj_fun *function;
+  struct obj_closure *closure;
 };
 
 #define STACK_MAX 256
@@ -18,8 +18,9 @@ struct vm {
   int error;
   char errmsg[128];
 
-  struct obj_fun *main;
   struct value vmain;
+  struct obj_fun *main;
+  struct obj_closure *main_closure;
 
   struct map globals;
   struct value_list constants;

@@ -39,11 +39,17 @@ struct value {
 #define is_fun(value)                                                          \
   (is_object(value) && object_is(value_as_obj(value), OBJ_FUN))
 
+#define is_closure(value)                                                      \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_CLOSURE))
+
 // Macros cast value to specific object
 #define value_as_string(value)                                                 \
   (object_as(value_as_obj(value), struct obj_string))
 
 #define value_as_fun(value) (object_as(value_as_obj(value), struct obj_fun))
+
+#define value_as_closure(value)                                                \
+  (object_as(value_as_obj(value), struct obj_closure))
 
 struct value value_make_nil(void);
 struct value value_make_bool(bool);
@@ -52,6 +58,7 @@ struct value value_make_object(struct object *);
 struct value value_make_ident(char *, int);
 struct value value_make_string(char *, int);
 struct value value_make_fun(int, struct obj_string *);
+struct value value_make_closure(struct obj_fun *);
 
 uint32_t value_hash(struct value);
 bool value_is_false(struct value);

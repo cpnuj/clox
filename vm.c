@@ -29,6 +29,7 @@ void op_jmp(struct vm *vm);
 void op_jmp_back(struct vm *vm);
 void op_jmp_on_false(struct vm *vm);
 void op_call(struct vm *vm);
+void op_closure(struct vm *vm);
 void op_return(struct vm *vm);
 void op_print(struct vm *vm);
 
@@ -49,7 +50,6 @@ void vm_init(struct vm *vm)
   vm->error = 0;
   vm->vmain
       = value_make_fun(0, value_as_string(value_make_string("script", 6)));
-  vm->main = value_as_fun(vm->vmain);
   value_array_init(&vm->constants);
   map_init(&vm->globals);
 
@@ -93,16 +93,16 @@ static inline struct frame *cur_frame(struct vm *vm)
 
 static inline struct chunk *cur_chunk(struct vm *vm)
 {
-  return &cur_frame(vm)->function->chunk;
+  return &cur_frame(vm)->closure->proto->chunk;
 }
 
-static inline void frame_push(struct vm *vm, struct obj_fun *function)
+static inline void frame_push(struct vm *vm, struct obj_closure *closure)
 {
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
-  vm->frames[vm->cur_frame].function = function;
+  vm->frames[vm->cur_frame].closure = closure;
   // the first slot of this frame is the fun itself
-  vm->frames[vm->cur_frame].bp = vm->sp - function->arity - 1;
+  vm->frames[vm->cur_frame].bp = vm->sp - closure->proto->arity - 1;
 }
 
 static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
@@ -111,8 +111,10 @@ void vm_run(struct vm *vm)
 {
   vm->done = 0;
   vm->cur_frame = -1;
+  vm->main_closure
+      = value_as_closure(value_make_closure(value_as_fun(vm->vmain)));
   vm_push(vm, vm->vmain);
-  frame_push(vm, vm->main);
+  frame_push(vm, vm->main_closure);
   while (1) {
     // vm_debug(vm);
     if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
@@ -143,8 +145,8 @@ static void trace_stack(struct vm *vm)
   for (i = vm->cur_frame; i >= 0; i--) {
     struct frame *frame = &vm->frames[i];
     fprintf(stderr, "[line %d] in %s",
-            frame->function->chunk.lines[frame->pc - 1],
-            frame->function->name->str);
+            frame->closure->proto->chunk.lines[frame->pc - 1],
+            frame->closure->proto->name->str);
     if (i != 0) {
       fprintf(stderr, "()");
     }
@@ -236,6 +238,8 @@ void run_instruction(struct vm *vm, uint8_t i)
 
   case OP_CALL:
     return op_call(vm);
+  case OP_CLOSURE:
+    return op_closure(vm);
   case OP_RETURN:
     return op_return(vm);
 
@@ -426,10 +430,11 @@ void op_jmp_on_false(struct vm *vm)
   }
 }
 
-static void call_fun(struct vm *vm, int arity, struct obj_fun *callee)
+static void call_fun(struct vm *vm, int arity, struct obj_closure *callee)
 {
-  if (arity != callee->arity) {
-    vm_errorf(vm, "Expected %d arguments but got %d.", callee->arity, arity);
+  if (arity != callee->proto->arity) {
+    vm_errorf(vm, "Expected %d arguments but got %d.", callee->proto->arity,
+              arity);
     return;
   }
   frame_push(vm, callee);
@@ -451,13 +456,20 @@ void op_call(struct vm *vm)
   uint8_t arity = fetch_code(vm);
   struct value vcallee = *(vm->sp - arity);
 
-  if (is_fun(vcallee)) {
-    call_fun(vm, arity, value_as_fun(vcallee));
+  if (is_closure(vcallee)) {
+    call_fun(vm, arity, value_as_closure(vcallee));
   } else if (is_native(vcallee)) {
     call_native(vm, arity, value_as_native(vcallee));
   } else {
     vm_errorf(vm, "Can only call functions and classes.");
   }
+}
+
+void op_closure(struct vm *vm)
+{
+  struct value proto = fetch_constant(vm);
+  struct value closure = value_make_closure(value_as_fun(proto));
+  vm_push(vm, closure);
 }
 
 void op_return(struct vm *vm)
