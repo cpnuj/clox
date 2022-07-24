@@ -137,26 +137,26 @@ static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
 
 static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
 
-static void scope_init(struct compiler *c)
+static void scope_init(struct scope *scope)
 {
-  c->scope.bp = -1;
-  c->scope.sp = -1;
-  c->scope.cur_depth = 0;
+  scope->sp = -1;
+  scope->cur_depth = 0;
 }
 
-static void scope_in(struct compiler *c) { c->scope.cur_depth++; }
+static void scope_in(struct scope *scope) { scope->cur_depth++; }
 
-static void scope_out(struct compiler *c)
+static int scope_out(struct scope *scope)
 {
-  struct scope *scope = &c->scope;
+  int n = 0;
   while (scope->sp >= 0) {
     if (scope->locals[scope->sp].depth != scope->cur_depth) {
       break;
     }
     scope->sp--;
-    emit_byte(c, OP_POP);
+    n++;
   }
   scope->cur_depth--;
+  return n;
 }
 
 static inline int scope_cursp(struct compiler *c) { return c->scope.sp; }
@@ -167,12 +167,12 @@ static inline void scope_setbp(struct compiler *c, int bp) { c->scope.bp = bp; }
 
 static int scope_find_cur(struct scope *scope, struct value name)
 {
-  for (int at = scope->sp; at > scope->bp; at--) {
+  for (int at = scope->sp; at >= 0; at--) {
     if (scope->locals[at].depth != scope->cur_depth) {
       return -1;
     }
     if (value_equal(scope->locals[at].name, name)) {
-      return at - scope->bp;
+      return at;
     }
   }
   return -1;
@@ -180,9 +180,9 @@ static int scope_find_cur(struct scope *scope, struct value name)
 
 static int scope_find_all(struct scope *scope, struct value name)
 {
-  for (int at = scope->sp; at > scope->bp; at--) {
+  for (int at = scope->sp; at >= 0; at--) {
     if (value_equal(scope->locals[at].name, name)) {
-      return at - scope->bp;
+      return at;
     }
   }
   return -1;
@@ -190,18 +190,17 @@ static int scope_find_all(struct scope *scope, struct value name)
 
 #define FIND_ALL 1
 #define FIND_CUR 2
-static int scope_find(struct compiler *c, struct value name, int method)
+static int scope_find(struct scope *scope, struct value name, int method)
 {
   if (method == FIND_ALL) {
-    return scope_find_all(&c->scope, name);
+    return scope_find_all(scope, name);
   } else {
-    return scope_find_cur(&c->scope, name);
+    return scope_find_cur(scope, name);
   }
 }
 
-static void scope_add(struct compiler *c, struct value name)
+static void scope_add(struct scope *scope, struct value name)
 {
-  struct scope *scope = &c->scope;
   scope->sp++;
   scope->locals[scope->sp].depth = scope->cur_depth;
   scope->locals[scope->sp].name = name;
@@ -219,23 +218,37 @@ static void scope_debug(struct scope *scope)
   printf("======== end debug scope ========\n");
 }
 
+static void frame_enter(struct compiler *c, struct scope *new_scope)
+{
+  new_scope->enclosing = c->cur_scope;
+  c->cur_scope = new_scope;
+}
+
+static void frame_out(struct compiler *c)
+{
+  c->cur_scope = c->cur_scope->enclosing;
+}
+
 // is_global returns true if the scope is in global env.
-static bool is_global(struct scope *scope) { return scope->cur_depth == 0; }
+static inline bool is_global(struct scope *scope)
+{
+  return scope->enclosing == NULL && scope->cur_depth == 0;
+}
 
 static void defvar(struct compiler *c, struct value name)
 {
-  if (is_global(&c->scope)) {
+  if (is_global(c->cur_scope)) {
     uint8_t constant = make_constant(c, name);
     emit_bytes(c, OP_GLOBAL, constant);
   } else {
-    scope_add(c, name);
+    scope_add(c->cur_scope, name);
   }
 }
 
 // TODO: setvar and getvar have similar structure, consider refactor
 static void setvar(struct compiler *c, struct value name)
 {
-  int idx = scope_find_all(&c->scope, name);
+  int idx = scope_find_all(c->cur_scope, name);
   if (idx >= 0) {
     emit_bytes(c, OP_SET_LOCAL, (uint8_t)idx);
     return;
@@ -247,7 +260,7 @@ static void setvar(struct compiler *c, struct value name)
 
 static void getvar(struct compiler *c, struct value name)
 {
-  int idx = scope_find(c, name, FIND_ALL);
+  int idx = scope_find(c->cur_scope, name, FIND_ALL);
   if (idx >= 0) {
     emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
     return;
@@ -418,7 +431,7 @@ static struct context group(struct compiler *c)
 
 static struct context ret(struct compiler *c)
 {
-  if (is_global(&c->scope)) {
+  if (is_global(c->cur_scope)) {
     errorf(c, "Can't return from top-level code.");
   }
   if (!check(c, TK_SEMICOLON)) {
@@ -551,7 +564,7 @@ static void declaration(struct compiler *);
 
 static void block_stmt(struct compiler *c)
 {
-  scope_in(c);
+  scope_in(c->cur_scope);
 
   while (!check(c, TK_RIGHT_BRACE) && !check(c, TK_EOF)) {
     declaration(c);
@@ -561,7 +574,10 @@ static void block_stmt(struct compiler *c)
   }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after block.");
 
-  scope_out(c);
+  int npop = scope_out(c->cur_scope);
+  for (int i = 0; i < npop; i++) {
+    emit_byte(c, OP_POP);
+  }
 }
 
 static void if_stmt(struct compiler *c)
@@ -603,7 +619,7 @@ static void while_stmt(struct compiler *c)
 
 static void for_stmt(struct compiler *c)
 {
-  scope_in(c);
+  scope_in(c->cur_scope);
 
   consume(c, TK_LEFT_PAREN, "Expect '(' after 'for'.");
 
@@ -647,7 +663,10 @@ static void for_stmt(struct compiler *c)
   patch_jmp(c, jmp_when_fail, cur_pos(c));
   emit_byte(c, OP_POP);
 
-  scope_out(c);
+  int npop = scope_out(c->cur_scope);
+  for (int i = 0; i < npop; i++) {
+    emit_byte(c, OP_POP);
+  }
 }
 
 static void expr_stmt(struct compiler *c)
@@ -687,7 +706,7 @@ static void var_declaration(struct compiler *c)
   struct context ctx = variable(c);
   struct value name = ctx.first;
 
-  if (scope_find(c, name, FIND_CUR) != -1) {
+  if (scope_find(c->cur_scope, name, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
@@ -695,7 +714,7 @@ static void var_declaration(struct compiler *c)
   if (match(c, TK_EQUAL)) {
     struct context initializer = expression(c, BP_NONE);
 
-    bool in_local = !is_global(&c->scope);
+    bool in_local = !is_global(c->cur_scope);
     bool is_own_initializer
         = initializer.id == TK_IDENT && value_equal(initializer.first, name);
 
@@ -719,7 +738,7 @@ static void fun_declaration(struct compiler *c)
   consume(c, TK_IDENT, "Expect function name.");
   struct value fname = variable(c).first;
 
-  if (scope_find(c, fname, FIND_CUR) != -1) {
+  if (scope_find(c->cur_scope, fname, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
@@ -747,10 +766,10 @@ static void fun_declaration(struct compiler *c)
   emit_bytes(c, OP_CLOSURE, make_constant(c, fun));
   defvar(c, fname);
 
-  // enter new scope and set scope base pointer
-  int oldbp = scope_curbp(c);
-  scope_setbp(c, scope_cursp(c));
-  scope_in(c);
+  struct scope scope;
+  scope_init(&scope);
+  frame_enter(c, &scope);
+
   defvar(c, fname);
   for (int i = 0; i < arity; i++) {
     defvar(c, paras[i]);
@@ -771,9 +790,7 @@ static void fun_declaration(struct compiler *c)
   debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
 #endif
 
-  scope_out(c);
-  scope_setbp(c, oldbp);
-
+  frame_out(c);
   // back to previous compiling chunk
   c->chunk = enclosing;
 }
@@ -866,8 +883,7 @@ static void compiler_init(struct compiler *c, char *src)
   c->error = 0;
 
   lex_init(&c->lexer, src, strlen(src));
-  scope_init(c);
-  scope_add(c, value_make_string("main", 4));
+
   map_init(&c->mconstants);
 
   // initial forward
@@ -882,12 +898,19 @@ static int compile_chunk(char *src, struct chunk *chunk,
   c.chunk = chunk;
   c.constants = constants;
 
+  struct scope root;
+  scope_init(&root);
+  root.enclosing = NULL;
+  c.cur_scope = &root;
+  scope_add(c.cur_scope, value_make_string("script", 6));
+
   while (!match(&c, TK_EOF)) {
     if (c.panic) {
       break;
     }
     declaration(&c);
   }
+
   emit_constant(&c, value_make_nil());
   emit_byte(&c, OP_RETURN);
 

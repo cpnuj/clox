@@ -102,10 +102,15 @@ static inline void frame_push(struct vm *vm, struct obj_closure *closure)
   vm->frames[vm->cur_frame].pc = 0;
   vm->frames[vm->cur_frame].closure = closure;
   // the first slot of this frame is the fun itself
-  vm->frames[vm->cur_frame].bp = vm->sp - closure->proto->arity - 1;
+  vm->frames[vm->cur_frame].bp = vm->sp - closure->proto->arity;
 }
 
-static inline void frame_pop(struct vm *vm) { vm->cur_frame--; }
+static inline void frame_pop(struct vm *vm)
+{
+  vm->sp = cur_frame(vm)->bp;
+  vm->sp--;
+  vm->cur_frame--;
+}
 
 void vm_run(struct vm *vm)
 {
@@ -475,7 +480,6 @@ void op_closure(struct vm *vm)
 void op_return(struct vm *vm)
 {
   struct value retval = vm_pop(vm);
-  vm->sp = cur_frame(vm)->bp;
   frame_pop(vm);
   if (vm->cur_frame < 0) {
     vm->done = 1;

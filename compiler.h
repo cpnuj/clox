@@ -18,6 +18,7 @@ struct scope {
   int sp;
   int cur_depth;
   struct local locals[UINT8_MAX + 1];
+  struct scope *enclosing;
 };
 
 struct compiler {
@@ -27,6 +28,7 @@ struct compiler {
   struct chunk *chunk; // Compiling chunk
   struct value_list *constants;
   struct scope scope;
+  struct scope *cur_scope;
   struct map mconstants; // map from value to idx in the constant list
 
   int error;
