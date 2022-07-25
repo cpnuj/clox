@@ -5,23 +5,23 @@
 #include "memory.h"
 #include "object.h"
 
-void object_init(struct object *obj, int type, uint32_t hash)
+void object_init(Object *obj, int type, uint32_t hash)
 {
   obj->type = type;
   obj->hash = hash;
 }
 
-bool object_equal(struct object *obj1, struct object *obj2)
+bool object_equal(Object *obj1, Object *obj2)
 {
   if (obj1->type != obj2->type)
     return false;
   switch (obj1->type) {
   case OBJ_STRING:
-    return string_equal(object_as(obj1, struct obj_string),
-                        object_as(obj2, struct obj_string));
-  case OBJ_FUN:
-    return string_equal(object_as(obj1, struct obj_fun)->name,
-                        object_as(obj2, struct obj_fun)->name);
+    return string_equal(object_as(obj1, ObjectString),
+                        object_as(obj2, ObjectString));
+  case OBJ_FUNCTION:
+    return string_equal(object_as(obj1, ObjectFunction)->name,
+                        object_as(obj2, ObjectFunction)->name);
   default:
     panic("unknown object type")
   }
@@ -38,44 +38,44 @@ uint32_t string_hash(const char *key, int length)
   return hash;
 }
 
-struct object *string_copy(char *src, int len)
+Object *string_copy(char *src, int len)
 {
-  struct obj_string *obj;
+  ObjectString *obj;
   uint32_t hash;
 
   // We need one more byte for trailing \0
   size_t size = sizeof(*obj) + len + 1;
-  obj = (struct obj_string *)reallocate(NULL, 0, size);
+  obj = (ObjectString *)reallocate(NULL, 0, size);
   hash = string_hash(src, len);
 
-  object_init((struct object *)obj, OBJ_STRING, hash);
+  object_init((Object *)obj, OBJ_STRING, hash);
 
   memcpy(obj->raw, src, len);
   obj->raw[len] = '\0';
 
   obj->len = len;
   obj->str = obj->raw;
-  return (struct object *)obj;
+  return (Object *)obj;
 }
 
-struct object *string_take(char *src, int len)
+Object *string_take(char *src, int len)
 {
-  struct obj_string *obj;
+  ObjectString *obj;
   uint32_t hash;
 
-  obj = (struct obj_string *)reallocate(NULL, 0, sizeof(struct obj_string));
+  obj = (ObjectString *)reallocate(NULL, 0, sizeof(ObjectString));
   hash = string_hash(src, len);
 
-  object_init((struct object *)obj, OBJ_STRING, hash);
+  object_init((Object *)obj, OBJ_STRING, hash);
 
   obj->len = len;
   obj->str = src;
-  return (struct object *)obj;
+  return (Object *)obj;
 }
 
-struct object *string_concat(struct obj_string *obj1, struct obj_string *obj2)
+Object *string_concat(ObjectString *obj1, ObjectString *obj2)
 {
-  struct object *obj;
+  Object *obj;
   char *dst;
   int len;
 
@@ -88,47 +88,47 @@ struct object *string_concat(struct obj_string *obj1, struct obj_string *obj2)
   return obj;
 }
 
-bool string_equal(struct obj_string *s1, struct obj_string *s2)
+bool string_equal(ObjectString *s1, ObjectString *s2)
 {
   if (s1 == s2)
     return true;
   return strcmp(s1->str, s2->str) == 0;
 }
 
-struct object *fun_new(int arity, struct obj_string *name)
+Object *fun_new(int arity, ObjectString *name)
 {
-  struct obj_fun *obj;
+  ObjectFunction *obj;
 
-  obj = (struct obj_fun *)reallocate(NULL, 0, sizeof(struct obj_fun));
-  object_init((struct object *)obj, OBJ_FUN, name->base.hash);
+  obj = (ObjectFunction *)reallocate(NULL, 0, sizeof(ObjectFunction));
+  object_init((Object *)obj, OBJ_FUNCTION, name->base.hash);
 
   obj->arity = arity;
   obj->name = name;
   chunk_init(&obj->chunk);
 
-  return (struct object *)obj;
+  return (Object *)obj;
 }
 
-struct object *closure_new(struct obj_fun *proto)
+Object *closure_new(ObjectFunction *proto)
 {
-  struct obj_closure *closure
-      = (struct obj_closure *)reallocate(NULL, 0, sizeof(struct obj_closure));
-  object_init((struct object *)closure, OBJ_CLOSURE, proto->base.hash);
+  ObjectClosure *closure
+      = (ObjectClosure *)reallocate(NULL, 0, sizeof(ObjectClosure));
+  object_init((Object *)closure, OBJ_CLOSURE, proto->base.hash);
   closure->proto = proto;
-  return (struct object *)closure;
+  return (Object *)closure;
 }
 
-void object_print(struct object *obj)
+void object_print(Object *obj)
 {
   switch (obj->type) {
   case OBJ_STRING:
-    printf("%s", ((struct obj_string *)obj)->str);
+    printf("%s", ((ObjectString *)obj)->str);
     break;
-  case OBJ_FUN:
-    printf("<fn %s>", ((struct obj_fun *)obj)->name->str);
+  case OBJ_FUNCTION:
+    printf("<fn %s>", ((ObjectFunction *)obj)->name->str);
     break;
   case OBJ_CLOSURE:
-    printf("<fn %s>", ((struct obj_closure *)obj)->proto->name->str);
+    printf("<fn %s>", ((ObjectClosure *)obj)->proto->name->str);
     break;
   case OBJ_NATIVE:
     printf("<native fn>");

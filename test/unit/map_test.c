@@ -10017,7 +10017,7 @@ struct test_case test_cases[] = {
 
 int test_map()
 {
-  struct map map;
+  Map map;
   map_init(&map);
   clock_t start, finish;
   double duration;
@@ -10027,8 +10027,8 @@ int test_map()
   start = clock();
   for (int i = 0; i < CASE_COUNT; i++) {
     struct test_case *c = &test_cases[i];
-    struct value key = value_make_string(c->key, strlen(c->key));
-    struct value val = value_make_string(c->val, strlen(c->val));
+    Value key = value_make_string(c->key, strlen(c->key));
+    Value val = value_make_string(c->val, strlen(c->val));
     map_put(&map, key, val);
   }
   finish = clock();
@@ -10043,8 +10043,8 @@ int test_map()
   for (int i = 0; i < test_num; i++) {
     int idx = rand() % CASE_COUNT;
     struct test_case *c = &test_cases[idx];
-    struct value key = value_make_string(c->key, strlen(c->key));
-    struct value val;
+    Value key = value_make_string(c->key, strlen(c->key));
+    Value val;
 
     start = clock();
     int found = map_get(&map, key, &val);

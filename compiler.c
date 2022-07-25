@@ -9,7 +9,7 @@
 #include "debug.h"
 #include "value.h"
 
-static void error_at(struct compiler *c, struct token tk, char *msg)
+static void error_at(Compiler *c, Token tk, char *msg)
 {
   if (c->panic)
     return;
@@ -28,11 +28,11 @@ static void error_at(struct compiler *c, struct token tk, char *msg)
   c->error = 1;
 }
 
-static inline struct token peek(struct compiler *c) { return c->curr; }
+static inline Token peek(Compiler *c) { return c->curr; }
 
-static inline struct token prev(struct compiler *c) { return c->prev; }
+static inline Token prev(Compiler *c) { return c->prev; }
 
-static struct token forward(struct compiler *c)
+static Token forward(Compiler *c)
 {
   c->prev = c->curr;
   c->curr = lex(&c->lexer);
@@ -42,21 +42,18 @@ static struct token forward(struct compiler *c)
   return c->prev;
 }
 
-static struct token consume(struct compiler *c, token_t type, char *msg)
+static Token consume(Compiler *c, token_t type, char *msg)
 {
-  struct token tk = peek(c);
+  Token tk = peek(c);
   if (tk.type == type) {
     return forward(c);
   }
   error_at(c, tk, msg);
 }
 
-static bool check(struct compiler *c, token_t type)
-{
-  return peek(c).type == type;
-}
+static bool check(Compiler *c, token_t type) { return peek(c).type == type; }
 
-static bool match(struct compiler *c, token_t type)
+static bool match(Compiler *c, token_t type)
 {
   if (check(c, type)) {
     forward(c);
@@ -65,7 +62,7 @@ static bool match(struct compiler *c, token_t type)
   return false;
 }
 
-static void errorf(struct compiler *c, char *fmt, ...)
+static void errorf(Compiler *c, char *fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
@@ -73,18 +70,18 @@ static void errorf(struct compiler *c, char *fmt, ...)
   error_at(c, prev(c), c->errmsg);
 }
 
-static void emit_byte(struct compiler *c, uint8_t byte)
+static void emit_byte(Compiler *c, uint8_t byte)
 {
-  chunk_add(c->chunk, byte, c->prev.line);
+  chunk_add(c->cur_chunk, byte, c->prev.line);
 }
 
-static void emit_bytes(struct compiler *c, uint8_t b1, uint8_t b2)
+static void emit_bytes(Compiler *c, uint8_t b1, uint8_t b2)
 {
   emit_byte(c, b1);
   emit_byte(c, b2);
 }
 
-static int add_constant(struct compiler *c, struct value value)
+static int add_constant(Compiler *c, Value value)
 {
   value_array_write(c->constants, value);
   return c->constants->len - 1;
@@ -92,10 +89,10 @@ static int add_constant(struct compiler *c, struct value value)
 
 // make_constant returns the idx of constant value. If the value has been
 // created, return its idx. Else, add new constant to compiling chunk.
-static uint8_t make_constant(struct compiler *c, struct value value)
+static uint8_t make_constant(Compiler *c, Value value)
 {
 #define value_as_int(value) ((int)value_as_number(value))
-  struct value vidx;
+  Value vidx;
   if (map_get(&c->mconstants, value, &vidx)) {
     return (uint8_t)value_as_int(vidx);
   }
@@ -110,20 +107,20 @@ static uint8_t make_constant(struct compiler *c, struct value value)
   return (uint8_t)constant;
 }
 
-static void emit_constant(struct compiler *c, struct value value)
+static void emit_constant(Compiler *c, Value value)
 {
   emit_bytes(c, OP_CONSTANT, make_constant(c, value));
 }
 
-static int emit_jmp(struct compiler *c, uint8_t jmpop)
+static int emit_jmp(Compiler *c, uint8_t jmpop)
 {
-  int jmpat = chunk_len(c->chunk);
+  int jmpat = chunk_len(c->cur_chunk);
   emit_byte(c, jmpop);
   emit_bytes(c, 0, 0);
   return jmpat;
 }
 
-static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
+static void patch_jmp(Compiler *c, int jmp_pos, int target_pos)
 {
   int offset;
   if (target_pos >= jmp_pos) {
@@ -131,21 +128,22 @@ static void patch_jmp(struct compiler *c, int jmp_pos, int target_pos)
   } else {
     offset = jmp_pos + 3 - target_pos;
   }
-  chunk_set(c->chunk, jmp_pos + 1, (offset >> 8) & 0xff);
-  chunk_set(c->chunk, jmp_pos + 2, (offset)&0xff);
+  chunk_set(c->cur_chunk, jmp_pos + 1, (offset >> 8) & 0xff);
+  chunk_set(c->cur_chunk, jmp_pos + 2, (offset)&0xff);
 }
 
-static void emit_return(struct compiler *c) { emit_byte(c, OP_RETURN); }
+static void emit_return(Compiler *c) { emit_byte(c, OP_RETURN); }
 
-static void scope_init(struct scope *scope)
+static void scope_init(Scope *scope)
 {
   scope->sp = -1;
   scope->cur_depth = 0;
+  scope->enclosing = NULL;
 }
 
-static void scope_in(struct scope *scope) { scope->cur_depth++; }
+static void scope_in(Scope *scope) { scope->cur_depth++; }
 
-static int scope_out(struct scope *scope)
+static int scope_out(Scope *scope)
 {
   int n = 0;
   while (scope->sp >= 0) {
@@ -159,13 +157,7 @@ static int scope_out(struct scope *scope)
   return n;
 }
 
-static inline int scope_cursp(struct compiler *c) { return c->scope.sp; }
-
-static inline int scope_curbp(struct compiler *c) { return c->scope.bp; }
-
-static inline void scope_setbp(struct compiler *c, int bp) { c->scope.bp = bp; }
-
-static int scope_find_cur(struct scope *scope, struct value name)
+static int scope_find_cur(Scope *scope, Value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
     if (scope->locals[at].depth != scope->cur_depth) {
@@ -178,7 +170,7 @@ static int scope_find_cur(struct scope *scope, struct value name)
   return -1;
 }
 
-static int scope_find_all(struct scope *scope, struct value name)
+static int scope_find_all(Scope *scope, Value name)
 {
   for (int at = scope->sp; at >= 0; at--) {
     if (value_equal(scope->locals[at].name, name)) {
@@ -190,7 +182,7 @@ static int scope_find_all(struct scope *scope, struct value name)
 
 #define FIND_ALL 1
 #define FIND_CUR 2
-static int scope_find(struct scope *scope, struct value name, int method)
+static int scope_find(Scope *scope, Value name, int method)
 {
   if (method == FIND_ALL) {
     return scope_find_all(scope, name);
@@ -199,14 +191,14 @@ static int scope_find(struct scope *scope, struct value name, int method)
   }
 }
 
-static void scope_add(struct scope *scope, struct value name)
+static void scope_add(Scope *scope, Value name)
 {
   scope->sp++;
   scope->locals[scope->sp].depth = scope->cur_depth;
   scope->locals[scope->sp].name = name;
 }
 
-static void scope_debug(struct scope *scope)
+static void scope_debug(Scope *scope)
 {
   printf("========== debug scope ==========\n");
   printf("sp: %d cur_depth: %d\n", scope->sp, scope->cur_depth);
@@ -218,24 +210,21 @@ static void scope_debug(struct scope *scope)
   printf("======== end debug scope ========\n");
 }
 
-static void frame_enter(struct compiler *c, struct scope *new_scope)
+static void frame_enter(Compiler *c, Scope *new_scope)
 {
   new_scope->enclosing = c->cur_scope;
   c->cur_scope = new_scope;
 }
 
-static void frame_out(struct compiler *c)
-{
-  c->cur_scope = c->cur_scope->enclosing;
-}
+static void frame_out(Compiler *c) { c->cur_scope = c->cur_scope->enclosing; }
 
 // is_global returns true if the scope is in global env.
-static inline bool is_global(struct scope *scope)
+static inline bool is_global(Scope *scope)
 {
   return scope->enclosing == NULL && scope->cur_depth == 0;
 }
 
-static void defvar(struct compiler *c, struct value name)
+static void defvar(Compiler *c, Value name)
 {
   if (is_global(c->cur_scope)) {
     uint8_t constant = make_constant(c, name);
@@ -246,7 +235,7 @@ static void defvar(struct compiler *c, struct value name)
 }
 
 // TODO: setvar and getvar have similar structure, consider refactor
-static void setvar(struct compiler *c, struct value name)
+static void setvar(Compiler *c, Value name)
 {
   int idx = scope_find_all(c->cur_scope, name);
   if (idx >= 0) {
@@ -258,7 +247,7 @@ static void setvar(struct compiler *c, struct value name)
   emit_bytes(c, OP_SET_GLOBAL, constant);
 }
 
-static void getvar(struct compiler *c, struct value name)
+static void getvar(Compiler *c, Value name)
 {
   int idx = scope_find(c->cur_scope, name, FIND_ALL);
   if (idx >= 0) {
@@ -286,7 +275,7 @@ typedef uint8_t binding_power;
 #define BP_CALL 90       // . ()
 #define BP_PRIMARY 100
 
-// struct context stores the parsing info of context expression,
+// Context stores the parsing info of context expression,
 // used by led_func.
 // In our one-pass compiler, in general we parse a series of tokens
 // and emit codes immediately. But resolving variables is an exception
@@ -297,32 +286,30 @@ typedef uint8_t binding_power;
 // Currently, only literal and variable would be evaled effectively.
 // Nud functions of literal and variable would not emit any code
 // until its context is evaled by the led of operators.
-struct context {
+typedef struct {
   token_t id;
   int arity;
-  struct value first;
-};
+  Value first;
+} Context;
 
-static struct context empty_context(token_t id)
+static Context empty_context(token_t id)
 {
-  struct context context = {
+  return (Context){
     .arity = 0,
     .id = id,
   };
-  return context;
 }
 
-static struct context unary_context(token_t id, struct value first)
+static Context unary_context(token_t id, Value first)
 {
-  struct context context = {
+  return (Context){
     .arity = 1,
     .id = id,
     .first = first,
   };
-  return context;
 }
 
-static void eval(struct compiler *c, struct context context)
+static void eval(Compiler *c, Context context)
 {
   if (context.arity == 0) {
     return;
@@ -335,27 +322,27 @@ static void eval(struct compiler *c, struct context context)
 }
 
 // nud_func denotes operator with one operand
-typedef struct context (*nud_func)(struct compiler *);
+typedef Context (*nud_func)(Compiler *);
 // led_func denotes operator with more than one operands
-typedef struct context (*led_func)(struct compiler *, struct context);
+typedef Context (*led_func)(Compiler *, Context);
 
-struct symbol {
+typedef struct {
   nud_func nud;
   led_func led;
   binding_power bp;
-};
+} Symbol;
 
-static struct symbol symbols[TK_MAX + 1];
+static Symbol symbols[TK_MAX + 1];
 
-static inline int cur_pos(struct compiler *c) { return chunk_len(c->chunk); }
+static inline int cur_pos(Compiler *c) { return chunk_len(c->cur_chunk); }
 
 #define nud_of(token) (symbols[token.type].nud)
 #define led_of(token) (symbols[token.type].led)
 #define bp_of(token) (symbols[token.type].bp)
 
-static struct context expression(struct compiler *c, binding_power bp)
+static Context expression(Compiler *c, binding_power bp)
 {
-  struct context left;
+  Context left;
   nud_func nud = nud_of(forward(c));
   if (nud == NULL) {
     errorf(c, "Expect expression.");
@@ -373,10 +360,10 @@ static struct context expression(struct compiler *c, binding_power bp)
   return left;
 }
 
-static struct context literal(struct compiler *c)
+static Context literal(Compiler *c)
 {
-  struct value v;
-  struct token tk = prev(c);
+  Value v;
+  Token tk = prev(c);
   switch (tk.type) {
   case TK_NIL:
     v = value_make_nil();
@@ -397,39 +384,38 @@ static struct context literal(struct compiler *c)
   return unary_context(tk.type, v);
 }
 
-static struct context variable(struct compiler *c)
+static Context variable(Compiler *c)
 {
-  struct token tk = prev(c);
-  struct value name
-      = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
+  Token tk = prev(c);
+  Value name = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
   return unary_context(tk.type, name);
 }
 
-static struct context negative(struct compiler *c)
+static Context negative(Compiler *c)
 {
-  struct context right = expression(c, BP_UNARY);
+  Context right = expression(c, BP_UNARY);
   eval(c, right);
   emit_byte(c, OP_NEGATIVE);
   return empty_context(TK_MINUS);
 }
 
-static struct context not(struct compiler * c)
+static Context not(Compiler * c)
 {
-  struct context right = expression(c, BP_UNARY);
+  Context right = expression(c, BP_UNARY);
   eval(c, right);
   emit_byte(c, OP_NOT);
   return empty_context(TK_BANG);
 }
 
-static struct context group(struct compiler *c)
+static Context group(Compiler *c)
 {
-  struct context grouped = expression(c, BP_NONE);
+  Context grouped = expression(c, BP_NONE);
   consume(c, TK_RIGHT_PAREN, "Expect ')' after group.");
   eval(c, grouped);
   return empty_context(TK_LEFT_PAREN);
 }
 
-static struct context ret(struct compiler *c)
+static Context ret(Compiler *c)
 {
   if (is_global(c->cur_scope)) {
     errorf(c, "Can't return from top-level code.");
@@ -443,22 +429,22 @@ static struct context ret(struct compiler *c)
   return empty_context(TK_RETURN);
 }
 
-static struct context assignment(struct compiler *c, struct context left)
+static Context assignment(Compiler *c, Context left)
 {
   if (left.id != TK_IDENT) {
     errorf(c, "Invalid assignment target.");
     return empty_context(TK_ERR);
   }
-  struct token tk = prev(c);
-  struct context right = expression(c, bp_of(tk) - 1);
+  Token tk = prev(c);
+  Context right = expression(c, bp_of(tk) - 1);
   eval(c, right);
   setvar(c, left.first);
   return empty_context(tk.type);
 }
 
-static op_code infix_opcode(struct token token)
+static op_code infix_opcode(Token token)
 {
-  switch (token_type(&token)) {
+  switch (token.type) {
   case TK_PLUS:
     return OP_ADD;
   case TK_MINUS:
@@ -484,17 +470,17 @@ static op_code infix_opcode(struct token token)
   }
 }
 
-static struct context infix(struct compiler *c, struct context left)
+static Context infix(Compiler *c, Context left)
 {
   eval(c, left);
-  struct token tk = prev(c);
-  struct context right = expression(c, bp_of(tk));
+  Token tk = prev(c);
+  Context right = expression(c, bp_of(tk));
   eval(c, right);
   emit_byte(c, infix_opcode(tk));
   return empty_context(tk.type);
 }
 
-static struct context infix_and(struct compiler *c, struct context left)
+static Context infix_and(Compiler *c, Context left)
 {
   eval(c, left);
   int jmp_pos = emit_jmp(c, OP_JMP_ON_FALSE);
@@ -504,7 +490,7 @@ static struct context infix_and(struct compiler *c, struct context left)
   return empty_context(TK_AND);
 }
 
-static struct context infix_or(struct compiler *c, struct context left)
+static Context infix_or(Compiler *c, Context left)
 {
   eval(c, left);
   int fail_pos = emit_jmp(c, OP_JMP_ON_FALSE);
@@ -516,7 +502,7 @@ static struct context infix_or(struct compiler *c, struct context left)
   return empty_context(TK_OR);
 }
 
-static struct context call(struct compiler *c, struct context left)
+static Context call(Compiler *c, Context left)
 {
   eval(c, left);
 
@@ -551,18 +537,18 @@ static void led_symbol(token_t id, binding_power bp, led_func led)
 
 static void just_symbol(token_t id) { symbols[id].bp = BP_NONE; }
 
-static void block_stmt(struct compiler *);
-static void if_stmt(struct compiler *);
-static void while_stmt(struct compiler *);
-static void for_stmt(struct compiler *);
-static void expr_stmt(struct compiler *);
-static void print_stmt(struct compiler *);
-static void statement(struct compiler *);
-static void var_declaration(struct compiler *);
-static void fun_declaration(struct compiler *);
-static void declaration(struct compiler *);
+static void block_stmt(Compiler *);
+static void if_stmt(Compiler *);
+static void while_stmt(Compiler *);
+static void for_stmt(Compiler *);
+static void expr_stmt(Compiler *);
+static void print_stmt(Compiler *);
+static void statement(Compiler *);
+static void var_declaration(Compiler *);
+static void fun_declaration(Compiler *);
+static void declaration(Compiler *);
 
-static void block_stmt(struct compiler *c)
+static void block_stmt(Compiler *c)
 {
   scope_in(c->cur_scope);
 
@@ -580,7 +566,7 @@ static void block_stmt(struct compiler *c)
   }
 }
 
-static void if_stmt(struct compiler *c)
+static void if_stmt(Compiler *c)
 {
   consume(c, TK_LEFT_PAREN, "Expect '(' after 'if'.");
   eval(c, expression(c, BP_NONE));
@@ -599,7 +585,7 @@ static void if_stmt(struct compiler *c)
   patch_jmp(c, then_jmp_pos, cur_pos(c));
 }
 
-static void while_stmt(struct compiler *c)
+static void while_stmt(Compiler *c)
 {
   // Record current pos for jumping back
   int cond_pos = cur_pos(c);
@@ -617,7 +603,7 @@ static void while_stmt(struct compiler *c)
   emit_byte(c, OP_POP); // pop out op_jmp_on_false
 }
 
-static void for_stmt(struct compiler *c)
+static void for_stmt(Compiler *c)
 {
   scope_in(c->cur_scope);
 
@@ -669,21 +655,21 @@ static void for_stmt(struct compiler *c)
   }
 }
 
-static void expr_stmt(struct compiler *c)
+static void expr_stmt(Compiler *c)
 {
   eval(c, expression(c, BP_NONE));
   consume(c, TK_SEMICOLON, "Expect ';' after expression declaration.");
   emit_byte(c, OP_POP);
 }
 
-static void print_stmt(struct compiler *c)
+static void print_stmt(Compiler *c)
 {
   eval(c, expression(c, BP_NONE));
   consume(c, TK_SEMICOLON, "Expect ';' after print declaration.");
   emit_byte(c, OP_PRINT);
 }
 
-static void statement(struct compiler *c)
+static void statement(Compiler *c)
 {
   if (match(c, TK_PRINT)) {
     return print_stmt(c);
@@ -700,11 +686,11 @@ static void statement(struct compiler *c)
   }
 }
 
-static void var_declaration(struct compiler *c)
+static void var_declaration(Compiler *c)
 {
   consume(c, TK_IDENT, "Expect variable name.");
-  struct context ctx = variable(c);
-  struct value name = ctx.first;
+  Context ctx = variable(c);
+  Value name = ctx.first;
 
   if (scope_find(c->cur_scope, name, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
@@ -712,7 +698,7 @@ static void var_declaration(struct compiler *c)
   }
 
   if (match(c, TK_EQUAL)) {
-    struct context initializer = expression(c, BP_NONE);
+    Context initializer = expression(c, BP_NONE);
 
     bool in_local = !is_global(c->cur_scope);
     bool is_own_initializer
@@ -733,10 +719,10 @@ static void var_declaration(struct compiler *c)
   consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
 }
 
-static void fun_declaration(struct compiler *c)
+static void fun_declaration(Compiler *c)
 {
   consume(c, TK_IDENT, "Expect function name.");
-  struct value fname = variable(c).first;
+  Value fname = variable(c).first;
 
   if (scope_find(c->cur_scope, fname, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
@@ -747,7 +733,7 @@ static void fun_declaration(struct compiler *c)
 
   // parse parameters
   int arity = 0;
-  struct value paras[255];
+  Value paras[255];
   while (match(c, TK_IDENT)) {
     if (arity >= 255) {
       errorf(c, "Can't have more than 255 parameters.");
@@ -762,11 +748,11 @@ static void fun_declaration(struct compiler *c)
 
   consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
 
-  struct value fun = value_make_fun(arity, value_as_string(fname));
+  Value fun = value_make_fun(arity, value_as_string(fname));
   emit_bytes(c, OP_CLOSURE, make_constant(c, fun));
   defvar(c, fname);
 
-  struct scope scope;
+  Scope scope;
   scope_init(&scope);
   frame_enter(c, &scope);
 
@@ -778,24 +764,24 @@ static void fun_declaration(struct compiler *c)
   consume(c, TK_LEFT_BRACE, "Expect '{' before function body.");
 
   // switch compiling chunk
-  struct chunk *enclosing = c->chunk;
-  struct obj_fun *funobj = (struct obj_fun *)value_as_obj(fun);
-  c->chunk = &funobj->chunk;
+  Chunk *enclosing = c->cur_chunk;
+  ObjectFunction *funobj = (ObjectFunction *)value_as_obj(fun);
+  c->cur_chunk = &funobj->chunk;
 
   block_stmt(c);
   emit_constant(c, value_make_nil());
   emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
-  debug_chunk(c->chunk, c->constants, value_as_string(fname)->str);
+  debug_chunk(c->cur_chunk, c->constants, value_as_string(fname)->str);
 #endif
 
   frame_out(c);
   // back to previous compiling chunk
-  c->chunk = enclosing;
+  c->cur_chunk = enclosing;
 }
 
-static void declaration(struct compiler *c)
+static void declaration(Compiler *c)
 {
   if (match(c, TK_VAR)) {
     var_declaration(c);
@@ -873,9 +859,11 @@ static void setup()
 
   // eof
   just_symbol(TK_EOF);
+
+  done = true;
 }
 
-static void compiler_init(struct compiler *c, char *src)
+static void compiler_init(Compiler *c, char *src)
 {
   setup();
 
@@ -890,19 +878,17 @@ static void compiler_init(struct compiler *c, char *src)
   forward(c);
 }
 
-static int compile_chunk(char *src, struct chunk *chunk,
-                         struct value_list *constants)
+static int compile_chunk(char *src, Chunk *chunk, ValueArray *constants)
 {
-  struct compiler c;
+  Compiler c;
   compiler_init(&c, src);
-  c.chunk = chunk;
+  c.cur_chunk = chunk;
   c.constants = constants;
 
-  struct scope root;
+  Scope root;
   scope_init(&root);
-  root.enclosing = NULL;
+  scope_add(&root, value_make_string("script", 6));
   c.cur_scope = &root;
-  scope_add(c.cur_scope, value_make_string("script", 6));
 
   while (!match(&c, TK_EOF)) {
     if (c.panic) {
@@ -917,7 +903,7 @@ static int compile_chunk(char *src, struct chunk *chunk,
   return c.error;
 }
 
-int compile(char *src, struct obj_fun *fun, struct value_list *constants)
+int compile(char *src, ObjectFunction *fun, ValueArray *constants)
 {
   int err = compile_chunk(src, &fun->chunk, constants);
 

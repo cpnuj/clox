@@ -1,7 +1,7 @@
 #include "debug.h"
 #include <stdio.h>
 
-void debug_chunk(struct chunk *chunk, struct value_list *constants, char *name)
+void debug_chunk(Chunk *chunk, ValueArray *constants, char *name)
 {
   printf("== %s ==\n", name);
   for (int offset = 0; offset < chunk->len;) {
@@ -9,8 +9,7 @@ void debug_chunk(struct chunk *chunk, struct value_list *constants, char *name)
   }
 }
 
-int debug_instruction(struct chunk *chunk, struct value_list *constants,
-                      int offset)
+int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
 {
   printf("%04d ", offset);
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -93,8 +92,8 @@ int simple_instruction(char *name, int offset)
   return offset + 1;
 }
 
-int constant_instruction(char *name, struct chunk *chunk,
-                         struct value_list *constants, int offset)
+int constant_instruction(char *name, Chunk *chunk, ValueArray *constants,
+                         int offset)
 {
   int constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
@@ -105,7 +104,7 @@ int constant_instruction(char *name, struct chunk *chunk,
   return offset + 2;
 }
 
-int jmp_instruction(char *name, struct chunk *chunk, int sign, int offset)
+int jmp_instruction(char *name, Chunk *chunk, int sign, int offset)
 {
   int h8 = chunk->code[offset + 1]; // high 8 bit
   int l8 = chunk->code[offset + 2]; // low  8 bit

@@ -35,7 +35,7 @@ typedef int token_t;
 #define TK_LESS 21
 #define TK_LESS_EQUAL 22
 
-struct lexer {
+typedef struct {
   int start;
   int end;
   int line; // current line
@@ -44,24 +44,22 @@ struct lexer {
 
   int err;
   char errmsg[128];
-};
+} Lexer;
 
-struct token {
+typedef struct {
   token_t type;
   int line;
   char *at; // the lexem begins at source
   int len;  // the lexem's len
-};
+} Token;
 
-struct lexer *lex_new(char *src, int len);
-void lex_init(struct lexer *l, char *src, int len);
-struct token lex(struct lexer *l);
-char *lex_error(struct lexer *l);
+Lexer *lex_new(char *src, int len);
+void lex_init(Lexer *l, char *src, int len);
+Token lex(Lexer *l);
+char *lex_error(Lexer *l);
 
-token_t token_type(struct token *token);
-int token_line(struct token *token);
-char *token_lexem(struct token *token, char *dst);
-char *token_lexem_start(struct token *token);
-int token_lexem_len(struct token *token);
+char *token_lexem(Token *token, char *dst);
+char *token_lexem_start(Token *token);
+int token_lexem_len(Token *token);
 
 #endif

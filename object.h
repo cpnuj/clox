@@ -8,57 +8,57 @@
 
 enum {
   OBJ_STRING = 1,
-  OBJ_FUN,
+  OBJ_FUNCTION,
   OBJ_CLOSURE,
   OBJ_NATIVE,
 };
 
-struct object {
+typedef struct {
   int type;
   uint32_t hash;
-};
+} Object;
 
-void object_init(struct object *obj, int type, uint32_t hash);
-bool object_equal(struct object *, struct object *);
+void object_init(Object *obj, int type, uint32_t hash);
+bool object_equal(Object *, Object *);
 
 #define object_is(obj, t) (obj->type == t)
 #define object_as(obj, t) ((t *)obj)
 
-// struct obj_string represents a string object in clox.
+// ObjectString represents a string object in clox.
 // If the raw string is embeded within this struct, pointer str points to filed
 // raw, else str may point to other space specified by user.
-struct obj_string {
-  struct object base;
+typedef struct {
+  Object base;
   int len;
   char *str;
   char raw[];
-};
+} ObjectString;
 
-struct object *string_copy(char *, int);
-struct object *string_take(char *, int);
+Object *string_copy(char *, int);
+Object *string_take(char *, int);
 
-struct object *string_concat(struct obj_string *, struct obj_string *);
+Object *string_concat(ObjectString *, ObjectString *);
 uint32_t string_hash(const char *, int);
-bool string_equal(struct obj_string *, struct obj_string *);
+bool string_equal(ObjectString *, ObjectString *);
 
-// struct obj_fun represents a function object in clox.
-struct obj_fun {
-  struct object base;
+// ObjectFunction represents a function object in clox.
+typedef struct {
+  Object base;
+  ObjectString *name;
   int arity;
-  struct obj_string *name;
-  struct chunk chunk;
-};
+  Chunk chunk;
+} ObjectFunction;
 
-struct object *fun_new(int, struct obj_string *);
+Object *fun_new(int, ObjectString *);
 
-// struct obj_closure is created as a running function object in runtime
-struct obj_closure {
-  struct object base;
-  struct obj_fun *proto;
-};
+// ObjectClosure is created as a running function object in runtime
+typedef struct {
+  Object base;
+  ObjectFunction *proto;
+} ObjectClosure;
 
-struct object *closure_new(struct obj_fun *proto);
+Object *closure_new(ObjectFunction *proto);
 
-void object_print(struct object *);
+void object_print(Object *);
 
 #endif

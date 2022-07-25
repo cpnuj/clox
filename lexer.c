@@ -4,23 +4,23 @@
 
 #include "lexer.h"
 
-void lexer_skip_whitespace(struct lexer *l);
-int lexer_end(struct lexer *l);
-char lexer_peek(struct lexer *l);
-char lexer_peeknext(struct lexer *l);
-char lexer_forward(struct lexer *l);
-int lexer_match(struct lexer *l, char c);
-void lexer_error(struct lexer *l, char *errmsg);
+void lexer_skip_whitespace(Lexer *l);
+int lexer_end(Lexer *l);
+char lexer_peek(Lexer *l);
+char lexer_peeknext(Lexer *l);
+char lexer_forward(Lexer *l);
+int lexer_match(Lexer *l, char c);
+void lexer_error(Lexer *l, char *errmsg);
 
 int iskeyword(char *s, int len);
 
-struct token mktoken(struct lexer *l, token_t type);
+Token mktoken(Lexer *l, token_t type);
 
-token_t lex_number(struct lexer *l);
-token_t lex_ident(struct lexer *l);
-token_t lex_string(struct lexer *l);
+token_t lex_number(Lexer *l);
+token_t lex_ident(Lexer *l);
+token_t lex_string(Lexer *l);
 
-void lexer_skip_whitespace(struct lexer *l)
+void lexer_skip_whitespace(Lexer *l)
 {
   for (;;) {
     char c = lexer_peek(l);
@@ -52,16 +52,16 @@ void lexer_skip_whitespace(struct lexer *l)
   }
 }
 
-int lexer_end(struct lexer *l) { return l->end >= l->len; }
+int lexer_end(Lexer *l) { return l->end >= l->len; }
 
-char lexer_peek(struct lexer *l) { return lexer_end(l) ? 0 : l->src[l->end]; }
+char lexer_peek(Lexer *l) { return lexer_end(l) ? 0 : l->src[l->end]; }
 
-char lexer_peeknext(struct lexer *l)
+char lexer_peeknext(Lexer *l)
 {
   return (l->end + 1 >= l->len) ? 0 : l->src[l->end + 1];
 }
 
-char lexer_forward(struct lexer *l)
+char lexer_forward(Lexer *l)
 {
   if (lexer_end(l)) {
     return 0;
@@ -71,7 +71,7 @@ char lexer_forward(struct lexer *l)
   return ret;
 }
 
-int lexer_match(struct lexer *l, char c)
+int lexer_match(Lexer *l, char c)
 {
   if (lexer_peek(l) == c) {
     lexer_forward(l);
@@ -80,7 +80,7 @@ int lexer_match(struct lexer *l, char c)
   return 0;
 }
 
-void lexer_error(struct lexer *l, char *errmsg)
+void lexer_error(Lexer *l, char *errmsg)
 {
   l->err = 1;
   if (lexer_end(l)) {
@@ -93,9 +93,9 @@ void lexer_error(struct lexer *l, char *errmsg)
 
 int iskeyword(char *s, int len) { return clox_keyword(s, len); }
 
-struct token mktoken(struct lexer *l, token_t type)
+Token mktoken(Lexer *l, token_t type)
 {
-  struct token tk = {
+  Token tk = {
     .type = type,
     .line = l->line,
     .at = l->src + l->start,
@@ -104,7 +104,7 @@ struct token mktoken(struct lexer *l, token_t type)
   return tk;
 }
 
-token_t lex_number(struct lexer *l)
+token_t lex_number(Lexer *l)
 {
   int hasDot = 0;
   for (;;) {
@@ -128,7 +128,7 @@ token_t lex_number(struct lexer *l)
   }
 }
 
-token_t lex_ident(struct lexer *l)
+token_t lex_ident(Lexer *l)
 {
   char c = lexer_peek(l);
   while (isdigit(c) || isalpha(c)) {
@@ -142,7 +142,7 @@ token_t lex_ident(struct lexer *l)
   return TK_IDENT;
 }
 
-token_t lex_string(struct lexer *l)
+token_t lex_string(Lexer *l)
 {
   while (lexer_forward(l) != '"') {
     if (lexer_end(l)) {
@@ -153,14 +153,14 @@ token_t lex_string(struct lexer *l)
   return TK_STRING;
 }
 
-struct lexer *lex_new(char *src, int len)
+Lexer *lex_new(char *src, int len)
 {
-  struct lexer *l = (struct lexer *)malloc(sizeof(struct lexer));
+  Lexer *l = (Lexer *)malloc(sizeof(Lexer));
   lex_init(l, src, len);
   return l;
 }
 
-void lex_init(struct lexer *l, char *src, int len)
+void lex_init(Lexer *l, char *src, int len)
 {
   l->start = 0;
   l->end = 0;
@@ -170,7 +170,7 @@ void lex_init(struct lexer *l, char *src, int len)
   l->err = 0;
 }
 
-struct token lex(struct lexer *l)
+Token lex(Lexer *l)
 {
   if (l->err)
     return mktoken(l, TK_ERR);
@@ -233,7 +233,7 @@ struct token lex(struct lexer *l)
   return mktoken(l, TK_ERR);
 }
 
-char *lex_error(struct lexer *l)
+char *lex_error(Lexer *l)
 {
   if (l->err) {
     return l->errmsg;
@@ -241,16 +241,16 @@ char *lex_error(struct lexer *l)
   return 0;
 }
 
-token_t token_type(struct token *token) { return token->type; }
+token_t token_type(Token *token) { return token->type; }
 
-int token_line(struct token *token) { return token->line; }
+int token_line(Token *token) { return token->line; }
 
-char *token_lexem(struct token *token, char *dest)
+char *token_lexem(Token *token, char *dest)
 {
   sprintf(dest, "%.*s", token->len, token->at);
   return dest;
 }
 
-char *token_lexem_start(struct token *token) { return token->at; }
+char *token_lexem_start(Token *token) { return token->at; }
 
-int token_lexem_len(struct token *token) { return token->len; }
+int token_lexem_len(Token *token) { return token->len; }

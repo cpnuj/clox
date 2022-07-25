@@ -6,94 +6,94 @@
 #include "memory.h"
 #include "value.h"
 
-struct value value_make_nil()
+Value value_make_nil()
 {
-  struct value value;
+  Value value;
   value.type = VT_NIL;
   return value;
 }
 
-struct value value_make_bool(bool boolean)
+Value value_make_bool(bool boolean)
 {
-  struct value value;
+  Value value;
   value.type = VT_BOOL;
   value.as.boolean = boolean;
   return value;
 }
 
-struct value value_make_number(double number)
+Value value_make_number(double number)
 {
-  struct value value;
+  Value value;
   value.type = VT_NUM;
   value.as.number = number;
   return value;
 }
 
-struct value value_make_object(struct object *obj)
+Value value_make_object(Object *obj)
 {
-  struct value value;
+  Value value;
   value.type = VT_OBJ;
   value.as.obj = obj;
   return value;
 }
 
 // value_make_ident makes a value with object string but as type VT_IDENT.
-struct value value_make_ident(char *str, int len)
+Value value_make_ident(char *str, int len)
 {
-  struct value value = value_make_string(str, len);
+  Value value = value_make_string(str, len);
   value.type = VT_IDENT;
   return value;
 }
 
-struct value value_make_string(char *str, int len)
+Value value_make_string(char *str, int len)
 {
-  struct value value;
+  Value value;
   value.type = VT_OBJ;
   value.as.obj = string_copy(str, len);
   return value;
 }
 
-struct value value_make_fun(int arity, struct obj_string *name)
+Value value_make_fun(int arity, ObjectString *name)
 {
-  struct value value;
+  Value value;
   value.type = VT_OBJ;
   value.as.obj = fun_new(arity, name);
   return value;
 }
 
-struct value value_make_closure(struct obj_fun *proto)
+Value value_make_closure(ObjectFunction *proto)
 {
-  struct value value;
+  Value value;
   value.type = VT_OBJ;
   value.as.obj = closure_new(proto);
   return value;
 }
 
-void value_array_init(struct value_list *va)
+void value_array_init(ValueArray *va)
 {
   va->len = 0;
   va->cap = 0;
   va->value = NULL;
 }
 
-void value_array_write(struct value_list *va, struct value v)
+void value_array_write(ValueArray *va, Value v)
 {
   if (va->cap < va->len + 1) {
     int oldSize = va->cap;
     va->cap = grow_cap(va->cap);
-    va->value = grow_array(struct value, va->value, oldSize, va->cap);
+    va->value = grow_array(Value, va->value, oldSize, va->cap);
   }
   va->value[va->len] = v;
   va->len++;
 }
 
-void value_array_free(struct value_list *va)
+void value_array_free(ValueArray *va)
 {
-  free_array(struct value, va->value, va->cap);
+  free_array(Value, va->value, va->cap);
   value_array_init(va);
 }
 
-struct value value_array_get(struct value_list *vlist, int idx)
+Value value_array_get(ValueArray *vlist, int idx)
 {
   if (idx >= vlist->len || idx < 0)
     panic("invalid reference index of value array");
@@ -106,7 +106,7 @@ uint32_t hash_double(double d)
   return string_hash((char *)&d, sizeof(double) / sizeof(char));
 }
 
-uint32_t value_hash(struct value value)
+uint32_t value_hash(Value value)
 {
   if (is_nil(value)) {
     return 0;
@@ -122,7 +122,7 @@ uint32_t value_hash(struct value value)
   panic("unknown type of value");
 }
 
-bool value_is_false(struct value value)
+bool value_is_false(Value value)
 {
   if (is_nil(value)) {
     return true;
@@ -133,7 +133,7 @@ bool value_is_false(struct value value)
   }
 }
 
-bool value_equal(struct value v1, struct value v2)
+bool value_equal(Value v1, Value v2)
 {
   if (v1.type != v2.type)
     return false;
@@ -153,7 +153,7 @@ bool value_equal(struct value v1, struct value v2)
   }
 }
 
-void value_print(struct value v)
+void value_print(Value v)
 {
   switch (v.type) {
   case VT_NIL:

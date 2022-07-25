@@ -1,20 +1,19 @@
 #include "object.h"
 #include "value.h"
 
-typedef struct value (*native_fn)(int argc, struct value *argv);
+typedef Value (*native_fn)(int argc, Value *argv);
 
-struct obj_native {
-  struct object base;
+typedef struct {
+  Object base;
   int arity;
   native_fn method;
-};
+} ObjectNative;
 
-#define value_as_native(value)                                                 \
-  (object_as(value_as_obj(value), struct obj_native))
+#define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
 
 #define is_native(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_NATIVE))
 
-struct value value_make_native(int, native_fn);
+Value value_make_native(int, native_fn);
 
-struct value native_clock(int, struct value *);
+Value native_clock(int, Value *);

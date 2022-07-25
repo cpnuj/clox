@@ -8,34 +8,32 @@
 
 // local_var represents a local variable with its name
 // and depth in the scope chain.
-struct local {
+typedef struct {
   int depth;
-  struct value name;
-};
+  Value name;
+} Local;
 
-struct scope {
-  int bp;
+typedef struct scope {
   int sp;
   int cur_depth;
-  struct local locals[UINT8_MAX + 1];
+  Local locals[UINT8_MAX + 1];
   struct scope *enclosing;
-};
+} Scope;
 
-struct compiler {
-  struct lexer lexer;
-  struct token curr;
-  struct token prev;
-  struct chunk *chunk; // Compiling chunk
-  struct value_list *constants;
-  struct scope scope;
-  struct scope *cur_scope;
-  struct map mconstants; // map from value to idx in the constant list
+typedef struct {
+  Lexer lexer;
+  Token curr;
+  Token prev;
+  ValueArray *constants;
+  Map mconstants; // map from value to idx in the constant list
+  Scope *cur_scope;
+  Chunk *cur_chunk; // Compiling chunk
 
   int error;
   int panic;
   char errmsg[128];
-};
+} Compiler;
 
-int compile(char *, struct obj_fun *, struct value_list *);
+int compile(char *, ObjectFunction *, ValueArray *);
 
 #endif

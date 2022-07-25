@@ -3,7 +3,7 @@
 #include "chunk.h"
 #include "memory.h"
 
-void chunk_init(struct chunk *chunk)
+void chunk_init(Chunk *chunk)
 {
   chunk->len = 0;
   chunk->cap = 0;
@@ -11,7 +11,7 @@ void chunk_init(struct chunk *chunk)
   chunk->lines = NULL;
 }
 
-void chunk_add(struct chunk *chunk, uint8_t byte, int line)
+void chunk_add(Chunk *chunk, uint8_t byte, int line)
 {
   if (chunk->cap < chunk->len + 1) {
     int oldSize = chunk->cap;
@@ -24,16 +24,16 @@ void chunk_add(struct chunk *chunk, uint8_t byte, int line)
   chunk->len++;
 }
 
-void chunk_set(struct chunk *chunk, int offset, uint8_t byte)
+void chunk_set(Chunk *chunk, int offset, uint8_t byte)
 {
   assert(offset < chunk->len);
   chunk->code[offset] = byte;
 }
 
-void chunk_free(struct chunk *chunk)
+void chunk_free(Chunk *chunk)
 {
   free_array(uint8_t, chunk->code, chunk->cap);
   chunk_init(chunk);
 }
 
-int chunk_len(struct chunk *chunk) { return chunk->len; }
+int chunk_len(Chunk *chunk) { return chunk->len; }

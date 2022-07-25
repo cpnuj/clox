@@ -12,7 +12,7 @@ void vm_error(struct vm *vm, char *errmsg);
 void vm_errorf(struct vm *vm, char *format, ...);
 
 uint8_t fetch_code(struct vm *vm);
-struct value fetch_constant(struct vm *vm);
+Value fetch_constant(struct vm *vm);
 int fetch_int16(struct vm *vm);
 void run_instruction(struct vm *vm, uint8_t i);
 
@@ -33,14 +33,14 @@ void op_closure(struct vm *vm);
 void op_return(struct vm *vm);
 void op_print(struct vm *vm);
 
-static struct map *globals(struct vm *vm);
+static Map *globals(struct vm *vm);
 
 static void vm_debug(struct vm *vm);
 
 static void define_native(struct vm *vm, char *name, int arity,
                           native_fn method)
 {
-  struct value native = value_make_native(arity, method);
+  Value native = value_make_native(arity, method);
   map_put(&vm->globals, value_make_ident(name, strlen(name)), native);
 }
 
@@ -56,7 +56,7 @@ void vm_init(struct vm *vm)
   define_native(vm, "clock", 0, native_clock);
 }
 
-void vm_push(struct vm *vm, struct value v)
+void vm_push(struct vm *vm, Value v)
 {
   if (vm->sp == vm->stack + STACK_MAX - 1) {
     // TODO: Add error handling
@@ -66,18 +66,18 @@ void vm_push(struct vm *vm, struct value v)
   *vm->sp = v;
 }
 
-struct value vm_pop(struct vm *vm)
+Value vm_pop(struct vm *vm)
 {
   if (vm->sp < vm->stack) {
     // TODO: Add error handling
     assert(0);
   }
-  struct value v = *vm->sp;
+  Value v = *vm->sp;
   vm->sp--;
   return v;
 }
 
-struct value vm_top(struct vm *vm)
+Value vm_top(struct vm *vm)
 {
   if (vm->sp < vm->stack) {
     // TODO: Add error handling
@@ -91,12 +91,12 @@ static inline struct frame *cur_frame(struct vm *vm)
   return &vm->frames[vm->cur_frame];
 }
 
-static inline struct chunk *cur_chunk(struct vm *vm)
+static inline Chunk *cur_chunk(struct vm *vm)
 {
   return &cur_frame(vm)->closure->proto->chunk;
 }
 
-static inline void frame_push(struct vm *vm, struct obj_closure *closure)
+static inline void frame_push(struct vm *vm, ObjectClosure *closure)
 {
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
@@ -180,7 +180,7 @@ uint8_t fetch_code(struct vm *vm)
   return code;
 }
 
-struct value fetch_constant(struct vm *vm)
+Value fetch_constant(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
   return vm->constants.value[off];
@@ -259,7 +259,7 @@ void op_constant(struct vm *vm) { vm_push(vm, fetch_constant(vm)); }
 
 void op_negative(struct vm *vm)
 {
-  struct value value = vm_pop(vm);
+  Value value = vm_pop(vm);
   if (value.type != VT_NUM) {
     vm_errorf(vm, "Operand must be a number.");
     return;
@@ -270,7 +270,7 @@ void op_negative(struct vm *vm)
 
 void op_not(struct vm *vm)
 {
-  struct value value = vm_pop(vm);
+  Value value = vm_pop(vm);
   if (value.type != VT_BOOL) {
     vm_error(vm, "type error: need boolean type");
     return;
@@ -279,9 +279,9 @@ void op_not(struct vm *vm)
   vm_push(vm, value_make_bool(!boolean));
 }
 
-struct value concatenate(struct value v1, struct value v2)
+Value concatenate(Value v1, Value v2)
 {
-  struct obj_string *s1, *s2;
+  ObjectString *s1, *s2;
   s1 = value_as_string(v1);
   s2 = value_as_string(v2);
   return value_make_object(string_concat(s1, s2));
@@ -289,10 +289,10 @@ struct value concatenate(struct value v1, struct value v2)
 
 void op_binary(struct vm *vm, uint8_t op)
 {
-  struct value v2 = vm_pop(vm);
-  struct value v1 = vm_pop(vm);
+  Value v2 = vm_pop(vm);
+  Value v1 = vm_pop(vm);
 
-  struct value v;
+  Value v;
   int error = 0;
 
 #define op_calculation(op)                                                     \
@@ -368,12 +368,12 @@ void op_binary(struct vm *vm, uint8_t op)
 #undef BINARY_OP_LOGIC
 }
 
-static struct map *globals(struct vm *vm) { return &vm->globals; }
+static Map *globals(struct vm *vm) { return &vm->globals; }
 
 void op_global(struct vm *vm)
 {
-  struct value name = fetch_constant(vm);
-  struct value value = vm_pop(vm);
+  Value name = fetch_constant(vm);
+  Value value = vm_pop(vm);
   if (!is_ident(name)) {
     panic("programming error: OP_GLOBAL operates on a non-ident name");
   }
@@ -382,8 +382,8 @@ void op_global(struct vm *vm)
 
 void op_set_global(struct vm *vm)
 {
-  struct value name = fetch_constant(vm);
-  struct value value = vm_pop(vm);
+  Value name = fetch_constant(vm);
+  Value value = vm_pop(vm);
 
   if (!map_get(globals(vm), name, NULL)) {
     vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
@@ -396,8 +396,8 @@ void op_set_global(struct vm *vm)
 
 void op_get_global(struct vm *vm)
 {
-  struct value name = fetch_constant(vm);
-  struct value value;
+  Value name = fetch_constant(vm);
+  Value value;
 
   if (!map_get(globals(vm), name, &value)) {
     vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
@@ -409,8 +409,8 @@ void op_get_global(struct vm *vm)
 void op_set_local(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  struct value *plocal = &cur_frame(vm)->bp[off];
-  struct value value = vm_pop(vm);
+  Value *plocal = &cur_frame(vm)->bp[off];
+  Value value = vm_pop(vm);
   *plocal = value;
   vm_push(vm, value);
 }
@@ -418,7 +418,7 @@ void op_set_local(struct vm *vm)
 void op_get_local(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  struct value *plocal = &cur_frame(vm)->bp[off];
+  Value *plocal = &cur_frame(vm)->bp[off];
   vm_push(vm, *plocal);
 }
 
@@ -435,7 +435,7 @@ void op_jmp_on_false(struct vm *vm)
   }
 }
 
-static void call_fun(struct vm *vm, int arity, struct obj_closure *callee)
+static void call_fun(struct vm *vm, int arity, ObjectClosure *callee)
 {
   if (arity != callee->proto->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->proto->arity,
@@ -445,13 +445,13 @@ static void call_fun(struct vm *vm, int arity, struct obj_closure *callee)
   frame_push(vm, callee);
 }
 
-static void call_native(struct vm *vm, int arity, struct obj_native *native)
+static void call_native(struct vm *vm, int arity, ObjectNative *native)
 {
   if (arity != native->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", native->arity, arity);
     return;
   }
-  struct value value = native->method(arity, vm->sp - arity + 1);
+  Value value = native->method(arity, vm->sp - arity + 1);
   vm->sp -= arity + 1;
   vm_push(vm, value);
 }
@@ -459,7 +459,7 @@ static void call_native(struct vm *vm, int arity, struct obj_native *native)
 void op_call(struct vm *vm)
 {
   uint8_t arity = fetch_code(vm);
-  struct value vcallee = *(vm->sp - arity);
+  Value vcallee = *(vm->sp - arity);
 
   if (is_closure(vcallee)) {
     call_fun(vm, arity, value_as_closure(vcallee));
@@ -472,14 +472,14 @@ void op_call(struct vm *vm)
 
 void op_closure(struct vm *vm)
 {
-  struct value proto = fetch_constant(vm);
-  struct value closure = value_make_closure(value_as_fun(proto));
+  Value proto = fetch_constant(vm);
+  Value closure = value_make_closure(value_as_fun(proto));
   vm_push(vm, closure);
 }
 
 void op_return(struct vm *vm)
 {
-  struct value retval = vm_pop(vm);
+  Value retval = vm_pop(vm);
   frame_pop(vm);
   if (vm->cur_frame < 0) {
     vm->done = 1;
@@ -490,7 +490,7 @@ void op_return(struct vm *vm)
 
 void op_print(struct vm *vm)
 {
-  struct value value = vm_pop(vm);
+  Value value = vm_pop(vm);
   if (vm->error) {
     return;
   }
@@ -505,7 +505,7 @@ static void vm_debug(struct vm *vm)
          (uint64_t)(cur_frame(vm)->bp - vm->stack));
   debug_instruction(cur_chunk(vm), &vm->constants, cur_frame(vm)->pc);
   printf("STACK\n");
-  for (struct value *i = vm->stack; i <= vm->sp; i++) {
+  for (Value *i = vm->stack; i <= vm->sp; i++) {
     printf("%03ld  ", (uint64_t)(i - vm->stack));
     value_print(*i);
     printf("\n");

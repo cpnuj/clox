@@ -3,22 +3,22 @@
 
 #include "value.h"
 
-struct map_item {
+typedef struct {
   uint8_t tag;
-  struct value key;
-  struct value value;
-};
+  Value key;
+  Value value;
+} MapItem;
 
-struct map {
+typedef struct {
   unsigned int size;
   unsigned int used;
 
-  struct map_item *items;
-};
+  MapItem *items;
+} Map;
 
-void map_init(struct map *);
-void map_put(struct map *, struct value, struct value);
-int map_del(struct map *, struct value);
-int map_get(struct map *, struct value, struct value *);
+void map_init(Map *);
+void map_put(Map *, Value, Value);
+int map_del(Map *, Value);
+int map_get(Map *, Value, Value *);
 
 #endif

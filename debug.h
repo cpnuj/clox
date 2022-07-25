@@ -13,11 +13,11 @@
     exit(1);                                                                   \
   }
 
-void debug_chunk(struct chunk *, struct value_list *, char *);
-int debug_instruction(struct chunk *, struct value_list *, int);
+void debug_chunk(Chunk *, ValueArray *, char *);
+int debug_instruction(Chunk *, ValueArray *, int);
 
 int simple_instruction(char *, int);
-int constant_instruction(char *, struct chunk *, struct value_list *, int);
-int jmp_instruction(char *, struct chunk *, int, int);
+int constant_instruction(char *, Chunk *, ValueArray *, int);
+int jmp_instruction(char *, Chunk *, int, int);
 
 #endif

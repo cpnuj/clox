@@ -38,17 +38,17 @@ typedef enum {
   OP_CALL,
 } op_code;
 
-struct chunk {
+typedef struct {
   int len;
   int cap;
   int *lines;
   uint8_t *code;
-};
+} Chunk;
 
-void chunk_init(struct chunk *chunk);
-void chunk_add(struct chunk *chunk, uint8_t byte, int line);
-void chunk_set(struct chunk *chunk, int offset, uint8_t byte);
-void chunk_free(struct chunk *chunk);
-int chunk_len(struct chunk *chunk);
+void chunk_init(Chunk *chunk);
+void chunk_add(Chunk *chunk, uint8_t byte, int line);
+void chunk_set(Chunk *chunk, int offset, uint8_t byte);
+void chunk_free(Chunk *chunk);
+int chunk_len(Chunk *chunk);
 
 #endif

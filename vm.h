@@ -6,8 +6,8 @@
 
 struct frame {
   int pc;
-  struct value *bp; // base pointer of this frame
-  struct obj_closure *closure;
+  Value *bp; // base pointer of this frame
+  ObjectClosure *closure;
 };
 
 #define STACK_MAX 256
@@ -18,15 +18,15 @@ struct vm {
   int error;
   char errmsg[128];
 
-  struct value vmain;
-  struct obj_fun *main;
-  struct obj_closure *main_closure;
+  Value vmain;
+  ObjectFunction *main;
+  ObjectClosure *main_closure;
 
-  struct map globals;
-  struct value_list constants;
+  Map globals;
+  ValueArray constants;
 
-  struct value stack[STACK_MAX];
-  struct value *sp; // Stack pointer
+  Value stack[STACK_MAX];
+  Value *sp; // Stack pointer
 
   struct frame frames[FRAME_MAX];
   int cur_frame;
@@ -34,8 +34,8 @@ struct vm {
 
 void vm_init(struct vm *vm);
 void vm_run(struct vm *vm);
-void vm_push(struct vm *vm, struct value v);
-struct value vm_pop(struct vm *vm);
-struct value vm_top(struct vm *vm);
+void vm_push(struct vm *vm, Value v);
+Value vm_pop(struct vm *vm);
+Value vm_top(struct vm *vm);
 
 #endif
