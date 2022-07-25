@@ -25,6 +25,8 @@ void op_set_global(struct vm *vm);
 void op_get_global(struct vm *vm);
 void op_set_local(struct vm *vm);
 void op_get_local(struct vm *vm);
+void op_set_upvalue(struct vm *vm);
+void op_get_upvalue(struct vm *vm);
 void op_jmp(struct vm *vm);
 void op_jmp_back(struct vm *vm);
 void op_jmp_on_false(struct vm *vm);
@@ -234,6 +236,11 @@ void run_instruction(struct vm *vm, uint8_t i)
   case OP_GET_LOCAL:
     return op_get_local(vm);
 
+  case OP_SET_UPVALUE:
+    return op_set_upvalue(vm);
+  case OP_GET_UPVALUE:
+    return op_get_upvalue(vm);
+
   case OP_JMP:
     return op_jmp(vm);
   case OP_JMP_BACK:
@@ -409,10 +416,8 @@ void op_get_global(struct vm *vm)
 void op_set_local(struct vm *vm)
 {
   uint8_t off = fetch_code(vm);
-  Value *plocal = &cur_frame(vm)->bp[off];
-  Value value = vm_pop(vm);
-  *plocal = value;
-  vm_push(vm, value);
+  Value *plocal = cur_frame(vm)->bp + off;
+  *plocal = vm_top(vm);
 }
 
 void op_get_local(struct vm *vm)
@@ -420,6 +425,20 @@ void op_get_local(struct vm *vm)
   uint8_t off = fetch_code(vm);
   Value *plocal = &cur_frame(vm)->bp[off];
   vm_push(vm, *plocal);
+}
+
+void op_set_upvalue(struct vm *vm)
+{
+  uint8_t idx = fetch_code(vm);
+  Value *location = cur_frame(vm)->closure->upvalues[idx]->location;
+  *location = vm_top(vm);
+}
+
+void op_get_upvalue(struct vm *vm)
+{
+  uint8_t idx = fetch_code(vm);
+  Value *location = cur_frame(vm)->closure->upvalues[idx]->location;
+  vm_push(vm, *location);
 }
 
 void op_jmp(struct vm *vm) { cur_frame(vm)->pc += fetch_int16(vm); }
@@ -473,8 +492,16 @@ void op_call(struct vm *vm)
 void op_closure(struct vm *vm)
 {
   Value proto = fetch_constant(vm);
-  Value closure = value_make_closure(value_as_fun(proto));
-  vm_push(vm, closure);
+  ObjectClosure *closure = closure_new(value_as_fun(proto));
+  for (int i = 0; i < closure->upvalue_size; i++) {
+    uint8_t idx = fetch_code(vm);
+    uint8_t from_local = fetch_code(vm);
+    Value *location = from_local
+                          ? cur_frame(vm)->bp + idx
+                          : cur_frame(vm)->closure->upvalues[idx]->location;
+    closure->upvalues[i] = upvalue_new(location);
+  }
+  vm_push(vm, value_make_object((Object *)closure));
 }
 
 void op_return(struct vm *vm)
@@ -508,6 +535,13 @@ static void vm_debug(struct vm *vm)
   for (Value *i = vm->stack; i <= vm->sp; i++) {
     printf("%03ld  ", (uint64_t)(i - vm->stack));
     value_print(*i);
+    printf("\n");
+  }
+  printf("UpValue\n");
+  for (int i = 0; i < cur_frame(vm)->closure->upvalue_size; i++) {
+    Value *up = cur_frame(vm)->closure->upvalues[i]->location;
+    printf("%03ld  ", (uint64_t)(up - vm->stack));
+    value_print(*up);
     printf("\n");
   }
   printf("\n");

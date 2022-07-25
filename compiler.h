@@ -13,10 +13,18 @@ typedef struct {
   Value name;
 } Local;
 
+typedef struct {
+  int idx;
+  bool from_local;
+  Value name;
+} UpValue;
+
 typedef struct scope {
   int sp;
   int cur_depth;
   Local locals[UINT8_MAX + 1];
+  int upvalue_size;
+  UpValue upvalues[UINT8_MAX + 1];
   struct scope *enclosing;
 } Scope;
 

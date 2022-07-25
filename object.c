@@ -109,13 +109,30 @@ Object *fun_new(int arity, ObjectString *name)
   return (Object *)obj;
 }
 
-Object *closure_new(ObjectFunction *proto)
+ObjectUpValue *upvalue_new(Value *location)
+{
+  ObjectUpValue *up
+      = (ObjectUpValue *)reallocate(NULL, 0, sizeof(ObjectUpValue));
+  object_init((Object *)up, OBJ_UPVALUE, nohash);
+  up->location = location;
+  return up;
+}
+
+ObjectClosure *closure_new(ObjectFunction *proto)
 {
   ObjectClosure *closure
       = (ObjectClosure *)reallocate(NULL, 0, sizeof(ObjectClosure));
   object_init((Object *)closure, OBJ_CLOSURE, proto->base.hash);
+
   closure->proto = proto;
-  return (Object *)closure;
+  closure->upvalue_size = proto->upvalue_size;
+  closure->upvalues = (ObjectUpValue **)reallocate(
+      NULL, 0, sizeof(ObjectUpValue *) * closure->upvalue_size);
+  for (int i = 0; i < closure->upvalue_size; i++) {
+    closure->upvalues[i] = NULL;
+  }
+
+  return closure;
 }
 
 void object_print(Object *obj)

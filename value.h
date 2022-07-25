@@ -14,14 +14,16 @@ typedef enum {
   VT_IDENT,
 } value_t;
 
-typedef struct {
+struct Value {
   value_t type;
   union {
     bool boolean;
     double number;
     Object *obj;
   } as;
-} Value;
+};
+
+typedef struct Value Value;
 
 #define value_as_bool(value) (value.as.boolean)
 #define value_as_number(value) (value.as.number)

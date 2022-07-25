@@ -241,10 +241,6 @@ char *lex_error(Lexer *l)
   return 0;
 }
 
-token_t token_type(Token *token) { return token->type; }
-
-int token_line(Token *token) { return token->line; }
-
 char *token_lexem(Token *token, char *dest)
 {
   sprintf(dest, "%.*s", token->len, token->at);

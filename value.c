@@ -63,10 +63,7 @@ Value value_make_fun(int arity, ObjectString *name)
 
 Value value_make_closure(ObjectFunction *proto)
 {
-  Value value;
-  value.type = VT_OBJ;
-  value.as.obj = closure_new(proto);
-  return value;
+  return value_make_object((Object *)closure_new(proto));
 }
 
 void value_array_init(ValueArray *va)

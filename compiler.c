@@ -182,7 +182,7 @@ static int scope_find_all(Scope *scope, Value name)
 
 #define FIND_ALL 1
 #define FIND_CUR 2
-static int scope_find(Scope *scope, Value name, int method)
+static int find_local(Scope *scope, Value name, int method)
 {
   if (method == FIND_ALL) {
     return scope_find_all(scope, name);
@@ -208,6 +208,56 @@ static void scope_debug(Scope *scope)
     printf("\n");
   }
   printf("======== end debug scope ========\n");
+}
+
+static int find_upvalue(Scope *scope, Value name)
+{
+  for (int i = 0; i < scope->upvalue_size; i++) {
+    if (value_equal(name, scope->upvalues[i].name)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static int add_upvalue(Scope *scope, UpValue upvalue)
+{
+  assert(scope->upvalue_size <= UINT8_MAX);
+  scope->upvalues[scope->upvalue_size++] = upvalue;
+  return scope->upvalue_size - 1;
+}
+
+static int capture_upvalue(Scope *scope, Value name)
+{
+  if (scope->enclosing == NULL) {
+    return -1;
+  }
+
+  int idx;
+
+  idx = find_upvalue(scope, name);
+  if (idx != -1) {
+    return idx;
+  }
+
+  UpValue upvalue;
+  upvalue.name = name;
+
+  idx = find_local(scope->enclosing, name, FIND_ALL);
+  if (idx != -1) {
+    upvalue.idx = idx;
+    upvalue.from_local = true;
+    return add_upvalue(scope, upvalue);
+  }
+
+  idx = capture_upvalue(scope->enclosing, name);
+  if (idx != -1) {
+    upvalue.idx = idx;
+    upvalue.from_local = false;
+    return add_upvalue(scope, upvalue);
+  }
+
+  return -1;
 }
 
 static void frame_enter(Compiler *c, Scope *new_scope)
@@ -237,11 +287,20 @@ static void defvar(Compiler *c, Value name)
 // TODO: setvar and getvar have similar structure, consider refactor
 static void setvar(Compiler *c, Value name)
 {
-  int idx = scope_find_all(c->cur_scope, name);
+  int idx;
+
+  idx = find_local(c->cur_scope, name, FIND_ALL);
   if (idx >= 0) {
     emit_bytes(c, OP_SET_LOCAL, (uint8_t)idx);
     return;
   }
+
+  idx = capture_upvalue(c->cur_scope, name);
+  if (idx >= 0) {
+    emit_bytes(c, OP_SET_UPVALUE, (uint8_t)idx);
+    return;
+  }
+
   // find in globals
   uint8_t constant = make_constant(c, name);
   emit_bytes(c, OP_SET_GLOBAL, constant);
@@ -249,11 +308,20 @@ static void setvar(Compiler *c, Value name)
 
 static void getvar(Compiler *c, Value name)
 {
-  int idx = scope_find(c->cur_scope, name, FIND_ALL);
+  int idx;
+
+  idx = find_local(c->cur_scope, name, FIND_ALL);
   if (idx >= 0) {
     emit_bytes(c, OP_GET_LOCAL, (uint8_t)idx);
     return;
   }
+
+  idx = capture_upvalue(c->cur_scope, name);
+  if (idx >= 0) {
+    emit_bytes(c, OP_GET_UPVALUE, (uint8_t)idx);
+    return;
+  }
+
   // find in globals
   uint8_t constant = make_constant(c, name);
   emit_bytes(c, OP_GET_GLOBAL, constant);
@@ -692,7 +760,7 @@ static void var_declaration(Compiler *c)
   Context ctx = variable(c);
   Value name = ctx.first;
 
-  if (scope_find(c->cur_scope, name, FIND_CUR) != -1) {
+  if (find_local(c->cur_scope, name, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
@@ -724,7 +792,7 @@ static void fun_declaration(Compiler *c)
   consume(c, TK_IDENT, "Expect function name.");
   Value fname = variable(c).first;
 
-  if (scope_find(c->cur_scope, fname, FIND_CUR) != -1) {
+  if (find_local(c->cur_scope, fname, FIND_CUR) != -1) {
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
@@ -749,8 +817,6 @@ static void fun_declaration(Compiler *c)
   consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
 
   Value fun = value_make_fun(arity, value_as_string(fname));
-  emit_bytes(c, OP_CLOSURE, make_constant(c, fun));
-  defvar(c, fname);
 
   Scope scope;
   scope_init(&scope);
@@ -776,9 +842,17 @@ static void fun_declaration(Compiler *c)
   debug_chunk(c->cur_chunk, c->constants, value_as_string(fname)->str);
 #endif
 
+  funobj->upvalue_size = scope.upvalue_size;
   frame_out(c);
+
   // back to previous compiling chunk
   c->cur_chunk = enclosing;
+  emit_bytes(c, OP_CLOSURE, make_constant(c, fun));
+  for (int i = 0; i < scope.upvalue_size; i++) {
+    emit_byte(c, (uint8_t)scope.upvalues[i].idx);
+    emit_byte(c, scope.upvalues[i].from_local ? 1 : 0);
+  }
+  defvar(c, fname);
 }
 
 static void declaration(Compiler *c)

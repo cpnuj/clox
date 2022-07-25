@@ -69,6 +69,10 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return constant_instruction("OP_SET_LOCAL", chunk, NULL, offset);
   case OP_GET_LOCAL:
     return constant_instruction("OP_GET_LOCAL", chunk, NULL, offset);
+  case OP_SET_UPVALUE:
+    return constant_instruction("OP_SET_UPVALUE", chunk, NULL, offset);
+  case OP_GET_UPVALUE:
+    return constant_instruction("OP_GET_UPVALUE", chunk, NULL, offset);
 
   case OP_JMP:
     return jmp_instruction("OP_JMP", chunk, 1, offset);
@@ -76,6 +80,18 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return jmp_instruction("OP_JMP_BACK", chunk, -1, offset);
   case OP_JMP_ON_FALSE:
     return jmp_instruction("OP_JMP_ON_FALSE", chunk, 1, offset);
+
+  case OP_CLOSURE:
+    offset = constant_instruction("OP_CLOSURE", chunk, constants, offset);
+    int constant = chunk->code[offset - 1];
+    ObjectFunction *fun = value_as_fun(constants->value[constant]);
+    for (int i = 0; i < fun->upvalue_size; i++) {
+      int idx = chunk->code[offset++];
+      int from_local = chunk->code[offset++];
+      printf("%04d    |                       %s %d\n", offset - 2,
+             from_local ? "local" : "upvalue", idx);
+    }
+    return offset;
 
   case OP_CALL:
     return constant_instruction("OP_CALL", chunk, NULL, offset);
