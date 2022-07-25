@@ -1,8 +1,9 @@
 #! /bin/bash
 
+gcc *.c -O3 -o clox
+
 if [ "X$1" = 'X-debug' ]; then
-  gcc *.c -g -DDEBUG -o clox
-else
-  gcc *.c -O3 -o clox
+  gcc *.c -g -DDEBUG -o clox-debug-compiler
+  gcc *.c -g -DDEBUG_RUNTIME -o clox-debug-runtime
 fi
 

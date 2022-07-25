@@ -1,3 +1,5 @@
 clox
+clox-debug-compiler
+clox-debug-runtime
 *.swp
 .vscode/

@@ -123,7 +123,11 @@ void vm_run(struct vm *vm)
   vm_push(vm, vm->vmain);
   frame_push(vm, vm->main_closure);
   while (1) {
-    // vm_debug(vm);
+
+#ifdef DEBUG_RUNTIME
+    vm_debug(vm);
+#endif
+
     if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
       vm_error(vm, "struct vm error: pc out of bound");
     }
