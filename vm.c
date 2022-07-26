@@ -5,6 +5,7 @@
 
 #include "debug.h"
 #include "map.h"
+#include "memory.h"
 #include "native.h"
 #include "vm.h"
 
@@ -88,6 +89,31 @@ Value vm_top(struct vm *vm)
   return *vm->sp;
 }
 
+static ObjectUpValue *open_upvalue(struct vm *vm, Value *location)
+{
+  ObjectUpValue **nextp = &vm->open_upvalues;
+  while (*nextp && (*nextp)->location > location) {
+    nextp = &((*nextp)->next);
+  }
+  if (*nextp && (*nextp)->location == location) {
+    return *nextp;
+  }
+  ObjectUpValue *new = upvalue_new(location);
+  new->next = *nextp;
+  *nextp = new;
+  return new;
+}
+
+static void close_upvalue(struct vm *vm, Value *location)
+{
+  ObjectUpValue **head = &vm->open_upvalues;
+  while (*head && (*head)->location > location) {
+    // TODO: keep closed value inside ObjectUpValue
+    upvalue_close(*head, (Value *)reallocate(NULL, 0, sizeof(Value)));
+    *head = (*head)->next;
+  }
+}
+
 static inline struct frame *cur_frame(struct vm *vm)
 {
   return &vm->frames[vm->cur_frame];
@@ -110,7 +136,8 @@ static inline void frame_push(struct vm *vm, ObjectClosure *closure)
 static inline void frame_pop(struct vm *vm)
 {
   vm->sp = cur_frame(vm)->bp;
-  vm->sp--;
+  close_upvalue(vm, vm->sp);
+  vm_pop(vm);
   vm->cur_frame--;
 }
 
@@ -225,6 +252,10 @@ void run_instruction(struct vm *vm, uint8_t i)
 
   case OP_POP:
     vm_pop(vm);
+    return;
+  case OP_CLOSE:
+    close_upvalue(vm, vm->sp);
+    vm_pop;
     return;
 
   case OP_GLOBAL:
@@ -503,7 +534,7 @@ void op_closure(struct vm *vm)
     Value *location = from_local
                           ? cur_frame(vm)->bp + idx
                           : cur_frame(vm)->closure->upvalues[idx]->location;
-    closure->upvalues[i] = upvalue_new(location);
+    closure->upvalues[i] = open_upvalue(vm, location);
   }
   vm_push(vm, value_make_object((Object *)closure));
 }
@@ -535,18 +566,34 @@ static void vm_debug(struct vm *vm)
   printf("PC: %4d BP: %4ld NEXT OP: ", cur_frame(vm)->pc,
          (uint64_t)(cur_frame(vm)->bp - vm->stack));
   debug_instruction(cur_chunk(vm), &vm->constants, cur_frame(vm)->pc);
+
   printf("STACK\n");
   for (Value *i = vm->stack; i <= vm->sp; i++) {
     printf("%03ld  ", (uint64_t)(i - vm->stack));
     value_print(*i);
     printf("\n");
   }
+  printf("\n");
+
+  printf("OPEN UPVALUES\n");
+  ObjectUpValue *opened = vm->open_upvalues;
+  while (opened) {
+    printf("%03ld -> ", (uint64_t)(opened->location - vm->stack));
+    opened = opened->next;
+  }
+  printf("NULL\n\n");
+
   printf("UpValue\n");
   for (int i = 0; i < cur_frame(vm)->closure->upvalue_size; i++) {
-    Value *up = cur_frame(vm)->closure->upvalues[i]->location;
-    printf("%03ld  ", (uint64_t)(up - vm->stack));
-    value_print(*up);
+    ObjectUpValue *up = cur_frame(vm)->closure->upvalues[i];
+    if (up->closed) {
+      printf("%08ld  ", (uint64_t)(up->location));
+    } else {
+      printf("%08ld  ", (uint64_t)(up->location - vm->stack));
+    }
+    value_print(*up->location);
     printf("\n");
   }
+
   printf("\n");
 }

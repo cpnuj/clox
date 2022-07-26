@@ -10,6 +10,7 @@
 // and depth in the scope chain.
 typedef struct {
   int depth;
+  bool is_captured;
   Value name;
 } Local;
 

@@ -25,6 +25,7 @@ typedef enum {
   OP_LESS_EQUAL,
   OP_PRINT,
   OP_POP,
+  OP_CLOSE,
   OP_GLOBAL, // define global variable
   OP_LOCAL,  // define local variable
   OP_SET_GLOBAL,

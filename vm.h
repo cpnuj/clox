@@ -30,6 +30,9 @@ struct vm {
 
   struct frame frames[FRAME_MAX];
   int cur_frame;
+
+  // open_upvalues maintain upvalues still in stack
+  ObjectUpValue *open_upvalues;
 };
 
 void vm_init(struct vm *vm);

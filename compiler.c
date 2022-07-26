@@ -143,18 +143,20 @@ static void scope_init(Scope *scope)
 
 static void scope_in(Scope *scope) { scope->cur_depth++; }
 
-static int scope_out(Scope *scope)
+static void scope_out(Scope *scope, Compiler *c)
 {
-  int n = 0;
   while (scope->sp >= 0) {
     if (scope->locals[scope->sp].depth != scope->cur_depth) {
       break;
     }
+    if (scope->locals[scope->sp].is_captured) {
+      emit_byte(c, OP_CLOSE);
+    } else {
+      emit_byte(c, OP_POP);
+    }
     scope->sp--;
-    n++;
   }
   scope->cur_depth--;
-  return n;
 }
 
 static int scope_find_cur(Scope *scope, Value name)
@@ -196,6 +198,7 @@ static void scope_add(Scope *scope, Value name)
   scope->sp++;
   scope->locals[scope->sp].depth = scope->cur_depth;
   scope->locals[scope->sp].name = name;
+  scope->locals[scope->sp].is_captured = false;
 }
 
 static void scope_debug(Scope *scope)
@@ -245,6 +248,7 @@ static int capture_upvalue(Scope *scope, Value name)
 
   idx = find_local(scope->enclosing, name, FIND_ALL);
   if (idx != -1) {
+    scope->enclosing->locals[idx].is_captured = true;
     upvalue.idx = idx;
     upvalue.from_local = true;
     return add_upvalue(scope, upvalue);
@@ -628,10 +632,7 @@ static void block_stmt(Compiler *c)
   }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after block.");
 
-  int npop = scope_out(c->cur_scope);
-  for (int i = 0; i < npop; i++) {
-    emit_byte(c, OP_POP);
-  }
+  scope_out(c->cur_scope, c);
 }
 
 static void if_stmt(Compiler *c)
@@ -717,10 +718,7 @@ static void for_stmt(Compiler *c)
   patch_jmp(c, jmp_when_fail, cur_pos(c));
   emit_byte(c, OP_POP);
 
-  int npop = scope_out(c->cur_scope);
-  for (int i = 0; i < npop; i++) {
-    emit_byte(c, OP_POP);
-  }
+  scope_out(c->cur_scope, c);
 }
 
 static void expr_stmt(Compiler *c)

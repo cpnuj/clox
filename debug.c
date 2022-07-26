@@ -54,6 +54,8 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return simple_instruction("OP_PRINT", offset);
   case OP_POP:
     return simple_instruction("OP_POP", offset);
+  case OP_CLOSE:
+    return simple_instruction("OP_CLOSE", offset);
 
   case OP_CONSTANT:
     return constant_instruction("OP_CONSTANT", chunk, constants, offset);

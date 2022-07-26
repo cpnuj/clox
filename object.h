@@ -57,12 +57,15 @@ Object *fun_new(int, ObjectString *);
 
 typedef struct Value Value;
 
-typedef struct {
+typedef struct ObjectUpvalue {
   Object base;
+  bool closed;
   Value *location;
+  struct ObjectUpvalue *next;
 } ObjectUpValue;
 
 ObjectUpValue *upvalue_new(Value *);
+void upvalue_close(ObjectUpValue *, Value *);
 
 // ObjectClosure is created as a running function object in runtime
 typedef struct {

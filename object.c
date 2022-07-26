@@ -115,7 +115,17 @@ ObjectUpValue *upvalue_new(Value *location)
       = (ObjectUpValue *)reallocate(NULL, 0, sizeof(ObjectUpValue));
   object_init((Object *)up, OBJ_UPVALUE, nohash);
   up->location = location;
+  up->closed = false;
+  up->next = NULL;
   return up;
+}
+
+// TODO: make Value closed inside ObjectUpValue
+void upvalue_close(ObjectUpValue *to_close, Value *new_location)
+{
+  to_close->closed = true;
+  *new_location = *to_close->location;
+  to_close->location = new_location;
 }
 
 ObjectClosure *closure_new(ObjectFunction *proto)
