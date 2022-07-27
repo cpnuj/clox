@@ -1,42 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "debug.h"
 #include "memory.h"
 #include "object.h"
 
-void object_init(Object *obj, int type, uint32_t hash)
-{
-  obj->type = type;
-  obj->hash = hash;
-}
-
-bool object_equal(Object *obj1, Object *obj2)
-{
-  if (obj1->type != obj2->type)
-    return false;
-  switch (obj1->type) {
-  case OBJ_STRING:
-    return string_equal(object_as(obj1, ObjectString),
-                        object_as(obj2, ObjectString));
-  case OBJ_FUNCTION:
-    return string_equal(object_as(obj1, ObjectFunction)->name,
-                        object_as(obj2, ObjectFunction)->name);
-  default:
-    panic("unknown object type")
-  }
-}
-
-// FNV-1a hash function
-uint32_t string_hash(const char *key, int length)
-{
-  uint32_t hash = 2166136261u;
-  for (int i = 0; i < length; i++) {
-    hash ^= (uint8_t)key[i];
-    hash *= 16777619;
-  }
-  return hash;
-}
+void string_format(Object *obj) { printf("%s", ((ObjectString *)obj)->str); }
 
 Object *string_copy(char *src, int len)
 {
@@ -46,9 +16,9 @@ Object *string_copy(char *src, int len)
   // We need one more byte for trailing \0
   size_t size = sizeof(*obj) + len + 1;
   obj = (ObjectString *)reallocate(NULL, 0, size);
-  hash = string_hash(src, len);
+  hash = FNV1a_hash(src, len);
 
-  object_init((Object *)obj, OBJ_STRING, hash);
+  object_init((Object *)obj, OBJ_STRING, hash, string_equal, string_format);
 
   memcpy(obj->raw, src, len);
   obj->raw[len] = '\0';
@@ -64,9 +34,9 @@ Object *string_take(char *src, int len)
   uint32_t hash;
 
   obj = (ObjectString *)reallocate(NULL, 0, sizeof(ObjectString));
-  hash = string_hash(src, len);
+  hash = FNV1a_hash(src, len);
 
-  object_init((Object *)obj, OBJ_STRING, hash);
+  object_init((Object *)obj, OBJ_STRING, hash, string_equal, string_format);
 
   obj->len = len;
   obj->str = src;
@@ -88,19 +58,29 @@ Object *string_concat(ObjectString *obj1, ObjectString *obj2)
   return obj;
 }
 
-bool string_equal(ObjectString *s1, ObjectString *s2)
+bool string_equal(Object *s1, Object *s2)
 {
   if (s1 == s2)
     return true;
-  return strcmp(s1->str, s2->str) == 0;
+  return strcmp(((ObjectString *)s1)->str, ((ObjectString *)s2)->str) == 0;
 }
+
+void function_format(Object *f)
+{
+  printf("<fn ");
+  string_format((Object *)((ObjectFunction *)f)->name);
+  printf(">");
+}
+
+bool function_equal(Object *f1, Object *f2) { return f1 == f2; }
 
 Object *fun_new(int arity, ObjectString *name)
 {
   ObjectFunction *obj;
 
   obj = (ObjectFunction *)reallocate(NULL, 0, sizeof(ObjectFunction));
-  object_init((Object *)obj, OBJ_FUNCTION, name->base.hash);
+  object_init((Object *)obj, OBJ_FUNCTION, name->base.hash, function_equal,
+              function_format);
 
   obj->arity = arity;
   obj->name = name;
@@ -113,7 +93,9 @@ ObjectUpValue *upvalue_new(Value *location)
 {
   ObjectUpValue *up
       = (ObjectUpValue *)reallocate(NULL, 0, sizeof(ObjectUpValue));
-  object_init((Object *)up, OBJ_UPVALUE, nohash);
+  object_init((Object *)up, OBJ_UPVALUE, nohash, NULL /* equal_fn */,
+              NULL /* formater */);
+
   up->location = location;
   up->closed = false;
   up->next = NULL;
@@ -128,11 +110,19 @@ void upvalue_close(ObjectUpValue *to_close, Value *new_location)
   to_close->location = new_location;
 }
 
+void closure_format(Object *c)
+{
+  function_format((Object *)((ObjectClosure *)c)->proto);
+}
+
+bool closure_equal(Object *c1, Object *c2) { return c1 == c2; }
+
 ObjectClosure *closure_new(ObjectFunction *proto)
 {
   ObjectClosure *closure
       = (ObjectClosure *)reallocate(NULL, 0, sizeof(ObjectClosure));
-  object_init((Object *)closure, OBJ_CLOSURE, proto->base.hash);
+  object_init((Object *)closure, OBJ_CLOSURE, proto->base.hash, closure_equal,
+              closure_format);
 
   closure->proto = proto;
   closure->upvalue_size = proto->upvalue_size;
@@ -145,22 +135,56 @@ ObjectClosure *closure_new(ObjectFunction *proto)
   return closure;
 }
 
-void object_print(Object *obj)
+void native_format(Object *native) { printf("<native fn>"); }
+
+ObjectNative *native_new(int arity, native_fn method)
 {
-  switch (obj->type) {
-  case OBJ_STRING:
-    printf("%s", ((ObjectString *)obj)->str);
-    break;
-  case OBJ_FUNCTION:
-    printf("<fn %s>", ((ObjectFunction *)obj)->name->str);
-    break;
-  case OBJ_CLOSURE:
-    printf("<fn %s>", ((ObjectClosure *)obj)->proto->name->str);
-    break;
-  case OBJ_NATIVE:
-    printf("<native fn>");
-    break;
-  default:
-    panic("unknown object type")
-  }
+  ObjectNative *obj = (ObjectNative *)reallocate(NULL, 0, sizeof(ObjectNative));
+  object_init((Object *)obj, OBJ_NATIVE, nohash, NULL /* equal_fn */,
+              native_format);
+  obj->arity = arity;
+  obj->method = method;
+  return obj;
+}
+
+Value native_clock(int arity, Value *argv)
+{
+  return value_make_number((double)clock() / CLOCKS_PER_SEC);
+}
+
+// value_make_ident makes a value with object string but as type VT_IDENT.
+Value value_make_ident(char *str, int len)
+{
+  Value value = value_make_string(str, len);
+  value.type = VT_IDENT;
+  return value;
+}
+
+Value value_make_string(char *str, int len)
+{
+  Value value;
+  value.type = VT_OBJ;
+  value.as.obj = string_copy(str, len);
+  return value;
+}
+
+Value value_make_fun(int arity, ObjectString *name)
+{
+  Value value;
+  value.type = VT_OBJ;
+  value.as.obj = fun_new(arity, name);
+  return value;
+}
+
+Value value_make_closure(ObjectFunction *proto)
+{
+  return value_make_object((Object *)closure_new(proto));
+}
+
+Value value_make_native(int arity, native_fn method)
+{
+  Value value;
+  value.type = VT_OBJ;
+  value.as.obj = (Object *)native_new(arity, method);
+  return value;
 }

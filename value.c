@@ -6,6 +6,43 @@
 #include "memory.h"
 #include "value.h"
 
+// FNV-1a hash function
+uint32_t FNV1a_hash(const char *key, int length)
+{
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+void object_init(Object *obj, object_t type, uint32_t hash,
+                 bool (*equal_fn)(Object *, Object *), void (*format)(Object *))
+{
+  obj->type = type;
+  obj->hash = hash;
+  obj->equal = equal_fn;
+  obj->format = format;
+}
+
+bool object_equal(Object *obj1, Object *obj2)
+{
+  if (obj1->type == obj2->type && obj1->hash == obj2->hash) {
+    return obj1->equal(obj1, obj2);
+  }
+  return false;
+}
+
+void object_print(Object *obj)
+{
+  if (obj->format == NULL) {
+    printf("type should not format");
+    return;
+  }
+  return obj->format(obj);
+}
+
 Value value_make_nil()
 {
   Value value;
@@ -35,35 +72,6 @@ Value value_make_object(Object *obj)
   value.type = VT_OBJ;
   value.as.obj = obj;
   return value;
-}
-
-// value_make_ident makes a value with object string but as type VT_IDENT.
-Value value_make_ident(char *str, int len)
-{
-  Value value = value_make_string(str, len);
-  value.type = VT_IDENT;
-  return value;
-}
-
-Value value_make_string(char *str, int len)
-{
-  Value value;
-  value.type = VT_OBJ;
-  value.as.obj = string_copy(str, len);
-  return value;
-}
-
-Value value_make_fun(int arity, ObjectString *name)
-{
-  Value value;
-  value.type = VT_OBJ;
-  value.as.obj = fun_new(arity, name);
-  return value;
-}
-
-Value value_make_closure(ObjectFunction *proto)
-{
-  return value_make_object((Object *)closure_new(proto));
 }
 
 void value_array_init(ValueArray *va)
@@ -100,7 +108,7 @@ Value value_array_get(ValueArray *vlist, int idx)
 
 uint32_t hash_double(double d)
 {
-  return string_hash((char *)&d, sizeof(double) / sizeof(char));
+  return FNV1a_hash((char *)&d, sizeof(double) / sizeof(char));
 }
 
 uint32_t value_hash(Value value)
@@ -113,7 +121,8 @@ uint32_t value_hash(Value value)
     return hash_double(value_as_number(value));
   } else if (is_object(value)) {
     return value_as_obj(value)->hash;
-  } else if (is_ident(value)) {
+  } else if (value.type == VT_IDENT) {
+    // TODO: remove value ident
     return value_as_obj(value)->hash;
   }
   panic("unknown type of value");

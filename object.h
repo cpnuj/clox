@@ -5,25 +5,7 @@
 #include <stdint.h>
 
 #include "chunk.h"
-
-enum {
-  OBJ_STRING = 1,
-  OBJ_FUNCTION,
-  OBJ_UPVALUE,
-  OBJ_CLOSURE,
-  OBJ_NATIVE,
-};
-
-typedef struct {
-  int type;
-  uint32_t hash;
-} Object;
-
-void object_init(Object *obj, int type, uint32_t hash);
-bool object_equal(Object *, Object *);
-
-#define object_is(obj, t) (obj->type == t)
-#define object_as(obj, t) ((t *)obj)
+#include "value.h"
 
 // ObjectString represents a string object in clox.
 // If the raw string is embeded within this struct, pointer str points to filed
@@ -39,8 +21,7 @@ Object *string_copy(char *, int);
 Object *string_take(char *, int);
 
 Object *string_concat(ObjectString *, ObjectString *);
-uint32_t string_hash(const char *, int);
-bool string_equal(ObjectString *, ObjectString *);
+bool string_equal(Object *, Object *);
 
 #define nohash 0
 
@@ -77,6 +58,43 @@ typedef struct {
 
 ObjectClosure *closure_new(ObjectFunction *);
 
-void object_print(Object *);
+typedef Value (*native_fn)(int argc, Value *argv);
+
+typedef struct {
+  Object base;
+  int arity;
+  native_fn method;
+} ObjectNative;
+
+#define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
+
+#define is_native(value)                                                       \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_NATIVE))
+
+Value native_clock(int, Value *);
+
+#define is_ident(value) (value.type == VT_IDENT)
+
+#define is_string(value)                                                       \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
+
+#define is_fun(value)                                                          \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_FUNCTION))
+
+#define is_closure(value)                                                      \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_CLOSURE))
+
+// Macros cast value to specific object
+#define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
+
+#define value_as_fun(value) (object_as(value_as_obj(value), ObjectFunction))
+
+#define value_as_closure(value) (object_as(value_as_obj(value), ObjectClosure))
+
+Value value_make_ident(char *, int);
+Value value_make_string(char *, int);
+Value value_make_fun(int, ObjectString *);
+Value value_make_closure(ObjectFunction *);
+Value value_make_native(int, native_fn);
 
 #endif

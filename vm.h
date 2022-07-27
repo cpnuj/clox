@@ -2,6 +2,7 @@
 #define clox_vm_h
 
 #include "chunk.h"
+#include "object.h"
 #include "value.h"
 
 typedef struct {

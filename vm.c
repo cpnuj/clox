@@ -6,7 +6,6 @@
 #include "debug.h"
 #include "map.h"
 #include "memory.h"
-#include "native.h"
 #include "vm.h"
 
 void vm_error(VM *vm, char *errmsg);

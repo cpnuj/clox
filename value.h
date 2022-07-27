@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "object.h"
+// TODO: move to some common module
+uint32_t FNV1a_hash(const char *, int);
 
 typedef enum {
   VT_NIL,
@@ -13,6 +14,29 @@ typedef enum {
   VT_OBJ,
   VT_IDENT,
 } value_t;
+
+typedef enum {
+  OBJ_STRING = 1,
+  OBJ_FUNCTION,
+  OBJ_UPVALUE,
+  OBJ_CLOSURE,
+  OBJ_NATIVE,
+} object_t;
+
+typedef struct Object {
+  object_t type;
+  uint32_t hash;
+  bool (*equal)(struct Object *, struct Object *);
+  void (*format)(struct Object *);
+} Object;
+
+void object_init(Object *obj, object_t type, uint32_t hash,
+                 bool (*)(Object *, Object *), void (*)(Object *));
+bool object_equal(Object *, Object *);
+void object_print(Object *);
+
+#define object_is(obj, t) (obj->type == t)
+#define object_as(obj, t) ((t *)obj)
 
 struct Value {
   value_t type;
@@ -33,32 +57,11 @@ typedef struct Value Value;
 #define is_number(value) (value.type == VT_NUM)
 #define is_bool(value) (value.type == VT_BOOL)
 #define is_object(value) (value.type == VT_OBJ)
-#define is_ident(value) (value.type == VT_IDENT)
-
-#define is_string(value)                                                       \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
-
-#define is_fun(value)                                                          \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_FUNCTION))
-
-#define is_closure(value)                                                      \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_CLOSURE))
-
-// Macros cast value to specific object
-#define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
-
-#define value_as_fun(value) (object_as(value_as_obj(value), ObjectFunction))
-
-#define value_as_closure(value) (object_as(value_as_obj(value), ObjectClosure))
 
 Value value_make_nil(void);
 Value value_make_bool(bool);
 Value value_make_number(double);
 Value value_make_object(Object *);
-Value value_make_ident(char *, int);
-Value value_make_string(char *, int);
-Value value_make_fun(int, ObjectString *);
-Value value_make_closure(ObjectFunction *);
 
 uint32_t value_hash(Value);
 bool value_is_false(Value);

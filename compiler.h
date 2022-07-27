@@ -4,6 +4,7 @@
 #include "chunk.h"
 #include "lexer.h"
 #include "map.h"
+#include "object.h"
 #include "value.h"
 
 // local_var represents a local variable with its name

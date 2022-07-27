@@ -1,5 +1,7 @@
-#include "debug.h"
 #include <stdio.h>
+
+#include "debug.h"
+#include "object.h"
 
 void debug_chunk(Chunk *chunk, ValueArray *constants, char *name)
 {
