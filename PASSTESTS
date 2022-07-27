@@ -32,6 +32,7 @@
 ./test/comments/unicode.lox
 ./test/empty_file.lox
 ./test/for/class_in_body.lox
+./test/for/closure_in_body.lox
 ./test/for/fun_in_body.lox
 ./test/for/return_closure.lox
 ./test/for/return_inside.lox
@@ -132,9 +133,10 @@
 ./test/variable/use_nil_as_var.lox
 ./test/variable/use_this_as_var.lox
 ./test/while/class_in_body.lox
+./test/while/closure_in_body.lox
 ./test/while/fun_in_body.lox
 ./test/while/return_closure.lox
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 139 Pass Rate: 52.26%
+=== Total: 266 Passed: 141 Pass Rate: 53.01%

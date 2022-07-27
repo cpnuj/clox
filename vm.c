@@ -105,7 +105,7 @@ static ObjectUpValue *open_upvalue(VM *vm, Value *location)
 static void close_upvalue(VM *vm, Value *location)
 {
   ObjectUpValue **head = &vm->open_upvalues;
-  while (*head && (*head)->location > location) {
+  while (*head && (*head)->location >= location) {
     // TODO: keep closed value inside ObjectUpValue
     upvalue_close(*head, (Value *)reallocate(NULL, 0, sizeof(Value)));
     *head = (*head)->next;
@@ -253,7 +253,7 @@ void run_instruction(VM *vm, uint8_t i)
     return;
   case OP_CLOSE:
     close_upvalue(vm, vm->sp);
-    vm_pop;
+    vm_pop(vm);
     return;
 
   case OP_GLOBAL:
