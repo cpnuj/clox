@@ -14,10 +14,15 @@
 ./test/call/nil.lox
 ./test/call/num.lox
 ./test/call/string.lox
+./test/closure/assign_to_closure.lox
 ./test/closure/assign_to_shadowed_later.lox
+./test/closure/close_over_function_parameter.lox
 ./test/closure/close_over_later_variable.lox
+./test/closure/closed_closure_in_function.lox
 ./test/closure/nested_closure.lox
 ./test/closure/open_closure_in_function.lox
+./test/closure/reference_closure_multiple_times.lox
+./test/closure/reuse_closure_slot.lox
 ./test/closure/shadow_closure_with_local.lox
 ./test/closure/unused_closure.lox
 ./test/closure/unused_later_closure.lox
@@ -132,4 +137,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 134 Pass Rate: 50.38%
+=== Total: 266 Passed: 139 Pass Rate: 52.26%

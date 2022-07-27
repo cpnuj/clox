@@ -131,7 +131,7 @@ token_t lex_number(Lexer *l)
 token_t lex_ident(Lexer *l)
 {
   char c = lexer_peek(l);
-  while (isdigit(c) || isalpha(c)) {
+  while (isdigit(c) || isalpha(c) || c == '_') {
     lexer_forward(l);
     c = lexer_peek(l);
   }
