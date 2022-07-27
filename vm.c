@@ -9,45 +9,44 @@
 #include "native.h"
 #include "vm.h"
 
-void vm_error(struct vm *vm, char *errmsg);
-void vm_errorf(struct vm *vm, char *format, ...);
+void vm_error(VM *vm, char *errmsg);
+void vm_errorf(VM *vm, char *format, ...);
 
-uint8_t fetch_code(struct vm *vm);
-Value fetch_constant(struct vm *vm);
-int fetch_int16(struct vm *vm);
-void run_instruction(struct vm *vm, uint8_t i);
+uint8_t fetch_code(VM *vm);
+Value fetch_constant(VM *vm);
+int fetch_int16(VM *vm);
+void run_instruction(VM *vm, uint8_t i);
 
-void op_constant(struct vm *vm);
-void op_negative(struct vm *vm);
-void op_not(struct vm *vm);
-void op_binary(struct vm *vm, uint8_t op);
-void op_global(struct vm *vm);
-void op_set_global(struct vm *vm);
-void op_get_global(struct vm *vm);
-void op_set_local(struct vm *vm);
-void op_get_local(struct vm *vm);
-void op_set_upvalue(struct vm *vm);
-void op_get_upvalue(struct vm *vm);
-void op_jmp(struct vm *vm);
-void op_jmp_back(struct vm *vm);
-void op_jmp_on_false(struct vm *vm);
-void op_call(struct vm *vm);
-void op_closure(struct vm *vm);
-void op_return(struct vm *vm);
-void op_print(struct vm *vm);
+void op_constant(VM *vm);
+void op_negative(VM *vm);
+void op_not(VM *vm);
+void op_binary(VM *vm, uint8_t op);
+void op_global(VM *vm);
+void op_set_global(VM *vm);
+void op_get_global(VM *vm);
+void op_set_local(VM *vm);
+void op_get_local(VM *vm);
+void op_set_upvalue(VM *vm);
+void op_get_upvalue(VM *vm);
+void op_jmp(VM *vm);
+void op_jmp_back(VM *vm);
+void op_jmp_on_false(VM *vm);
+void op_call(VM *vm);
+void op_closure(VM *vm);
+void op_return(VM *vm);
+void op_print(VM *vm);
 
-static Map *globals(struct vm *vm);
+static Map *globals(VM *vm);
 
-static void vm_debug(struct vm *vm);
+static void vm_debug(VM *vm);
 
-static void define_native(struct vm *vm, char *name, int arity,
-                          native_fn method)
+static void define_native(VM *vm, char *name, int arity, native_fn method)
 {
   Value native = value_make_native(arity, method);
   map_put(&vm->globals, value_make_ident(name, strlen(name)), native);
 }
 
-void vm_init(struct vm *vm)
+void vm_init(VM *vm)
 {
   vm->sp = vm->stack - 1;
   vm->error = 0;
@@ -59,7 +58,7 @@ void vm_init(struct vm *vm)
   define_native(vm, "clock", 0, native_clock);
 }
 
-void vm_push(struct vm *vm, Value v)
+void vm_push(VM *vm, Value v)
 {
   if (vm->sp == vm->stack + STACK_MAX - 1) {
     // TODO: Add error handling
@@ -69,7 +68,7 @@ void vm_push(struct vm *vm, Value v)
   *vm->sp = v;
 }
 
-Value vm_pop(struct vm *vm)
+Value vm_pop(VM *vm)
 {
   if (vm->sp < vm->stack) {
     // TODO: Add error handling
@@ -80,7 +79,7 @@ Value vm_pop(struct vm *vm)
   return v;
 }
 
-Value vm_top(struct vm *vm)
+Value vm_top(VM *vm)
 {
   if (vm->sp < vm->stack) {
     // TODO: Add error handling
@@ -89,7 +88,7 @@ Value vm_top(struct vm *vm)
   return *vm->sp;
 }
 
-static ObjectUpValue *open_upvalue(struct vm *vm, Value *location)
+static ObjectUpValue *open_upvalue(VM *vm, Value *location)
 {
   ObjectUpValue **nextp = &vm->open_upvalues;
   while (*nextp && (*nextp)->location > location) {
@@ -104,7 +103,7 @@ static ObjectUpValue *open_upvalue(struct vm *vm, Value *location)
   return new;
 }
 
-static void close_upvalue(struct vm *vm, Value *location)
+static void close_upvalue(VM *vm, Value *location)
 {
   ObjectUpValue **head = &vm->open_upvalues;
   while (*head && (*head)->location > location) {
@@ -114,17 +113,17 @@ static void close_upvalue(struct vm *vm, Value *location)
   }
 }
 
-static inline struct frame *cur_frame(struct vm *vm)
+static inline CallFrame *cur_frame(VM *vm)
 {
   return &vm->frames[vm->cur_frame];
 }
 
-static inline Chunk *cur_chunk(struct vm *vm)
+static inline Chunk *cur_chunk(VM *vm)
 {
   return &cur_frame(vm)->closure->proto->chunk;
 }
 
-static inline void frame_push(struct vm *vm, ObjectClosure *closure)
+static inline void frame_push(VM *vm, ObjectClosure *closure)
 {
   vm->cur_frame++;
   vm->frames[vm->cur_frame].pc = 0;
@@ -133,7 +132,7 @@ static inline void frame_push(struct vm *vm, ObjectClosure *closure)
   vm->frames[vm->cur_frame].bp = vm->sp - closure->proto->arity;
 }
 
-static inline void frame_pop(struct vm *vm)
+static inline void frame_pop(VM *vm)
 {
   vm->sp = cur_frame(vm)->bp;
   close_upvalue(vm, vm->sp);
@@ -141,7 +140,7 @@ static inline void frame_pop(struct vm *vm)
   vm->cur_frame--;
 }
 
-void vm_run(struct vm *vm)
+void vm_run(VM *vm)
 {
   vm->done = 0;
   vm->cur_frame = -1;
@@ -156,7 +155,7 @@ void vm_run(struct vm *vm)
 #endif
 
     if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
-      vm_error(vm, "struct vm error: pc out of bound");
+      vm_error(vm, "VM error: pc out of bound");
     }
     if (vm->error) {
       while (fetch_code(vm) != OP_RETURN)
@@ -171,17 +170,17 @@ void vm_run(struct vm *vm)
   }
 }
 
-void vm_error(struct vm *vm, char *errmsg)
+void vm_error(VM *vm, char *errmsg)
 {
   vm->error = 1;
   sprintf(vm->errmsg, "%s", errmsg);
 }
 
-static void trace_stack(struct vm *vm)
+static void trace_stack(VM *vm)
 {
   int i;
   for (i = vm->cur_frame; i >= 0; i--) {
-    struct frame *frame = &vm->frames[i];
+    CallFrame *frame = &vm->frames[i];
     fprintf(stderr, "[line %d] in %s",
             frame->closure->proto->chunk.lines[frame->pc - 1],
             frame->closure->proto->name->str);
@@ -192,7 +191,7 @@ static void trace_stack(struct vm *vm)
   }
 }
 
-void vm_errorf(struct vm *vm, char *format, ...)
+void vm_errorf(VM *vm, char *format, ...)
 {
   vm->error = 1;
   va_list ap;
@@ -203,30 +202,30 @@ void vm_errorf(struct vm *vm, char *format, ...)
 }
 
 // fetch_code fetch and return the next code from vm chunk.
-uint8_t fetch_code(struct vm *vm)
+uint8_t fetch_code(VM *vm)
 {
   if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {
-    panic("struct vm error: fetch_code overflow");
+    panic("VM error: fetch_code overflow");
   }
   uint8_t code = cur_chunk(vm)->code[cur_frame(vm)->pc];
   cur_frame(vm)->pc++;
   return code;
 }
 
-Value fetch_constant(struct vm *vm)
+Value fetch_constant(VM *vm)
 {
   uint8_t off = fetch_code(vm);
   return vm->constants.value[off];
 }
 
-int fetch_int16(struct vm *vm)
+int fetch_int16(VM *vm)
 {
   int h8 = fetch_code(vm); // high 8 bit
   int l8 = fetch_code(vm); // low  8 bit
   return (h8 << 8) | l8;
 }
 
-void run_instruction(struct vm *vm, uint8_t i)
+void run_instruction(VM *vm, uint8_t i)
 {
   switch (i) {
   case OP_CONSTANT:
@@ -297,9 +296,9 @@ void run_instruction(struct vm *vm, uint8_t i)
   vm_error(vm, "unknown code");
 }
 
-void op_constant(struct vm *vm) { vm_push(vm, fetch_constant(vm)); }
+void op_constant(VM *vm) { vm_push(vm, fetch_constant(vm)); }
 
-void op_negative(struct vm *vm)
+void op_negative(VM *vm)
 {
   Value value = vm_pop(vm);
   if (value.type != VT_NUM) {
@@ -310,7 +309,7 @@ void op_negative(struct vm *vm)
   vm_push(vm, value_make_number(-number));
 }
 
-void op_not(struct vm *vm)
+void op_not(VM *vm)
 {
   Value value = vm_pop(vm);
   if (value.type != VT_BOOL) {
@@ -329,7 +328,7 @@ Value concatenate(Value v1, Value v2)
   return value_make_object(string_concat(s1, s2));
 }
 
-void op_binary(struct vm *vm, uint8_t op)
+void op_binary(VM *vm, uint8_t op)
 {
   Value v2 = vm_pop(vm);
   Value v1 = vm_pop(vm);
@@ -410,9 +409,9 @@ void op_binary(struct vm *vm, uint8_t op)
 #undef BINARY_OP_LOGIC
 }
 
-static Map *globals(struct vm *vm) { return &vm->globals; }
+static Map *globals(VM *vm) { return &vm->globals; }
 
-void op_global(struct vm *vm)
+void op_global(VM *vm)
 {
   Value name = fetch_constant(vm);
   Value value = vm_pop(vm);
@@ -422,7 +421,7 @@ void op_global(struct vm *vm)
   map_put(globals(vm), name, value);
 }
 
-void op_set_global(struct vm *vm)
+void op_set_global(VM *vm)
 {
   Value name = fetch_constant(vm);
   Value value = vm_pop(vm);
@@ -436,7 +435,7 @@ void op_set_global(struct vm *vm)
   vm_push(vm, value);
 }
 
-void op_get_global(struct vm *vm)
+void op_get_global(VM *vm)
 {
   Value name = fetch_constant(vm);
   Value value;
@@ -448,40 +447,40 @@ void op_get_global(struct vm *vm)
   vm_push(vm, value);
 }
 
-void op_set_local(struct vm *vm)
+void op_set_local(VM *vm)
 {
   uint8_t off = fetch_code(vm);
   Value *plocal = cur_frame(vm)->bp + off;
   *plocal = vm_top(vm);
 }
 
-void op_get_local(struct vm *vm)
+void op_get_local(VM *vm)
 {
   uint8_t off = fetch_code(vm);
   Value *plocal = &cur_frame(vm)->bp[off];
   vm_push(vm, *plocal);
 }
 
-void op_set_upvalue(struct vm *vm)
+void op_set_upvalue(VM *vm)
 {
   uint8_t idx = fetch_code(vm);
   Value *location = cur_frame(vm)->closure->upvalues[idx]->location;
   *location = vm_top(vm);
 }
 
-void op_get_upvalue(struct vm *vm)
+void op_get_upvalue(VM *vm)
 {
   uint8_t idx = fetch_code(vm);
   Value *location = cur_frame(vm)->closure->upvalues[idx]->location;
   vm_push(vm, *location);
 }
 
-void op_jmp(struct vm *vm) { cur_frame(vm)->pc += fetch_int16(vm); }
+void op_jmp(VM *vm) { cur_frame(vm)->pc += fetch_int16(vm); }
 
-void op_jmp_back(struct vm *vm) { cur_frame(vm)->pc -= fetch_int16(vm); }
+void op_jmp_back(VM *vm) { cur_frame(vm)->pc -= fetch_int16(vm); }
 
 // op_jmp_on_false does not pop the value
-void op_jmp_on_false(struct vm *vm)
+void op_jmp_on_false(VM *vm)
 {
   int offset = fetch_int16(vm);
   if (value_is_false(vm_top(vm))) {
@@ -489,7 +488,7 @@ void op_jmp_on_false(struct vm *vm)
   }
 }
 
-static void call_fun(struct vm *vm, int arity, ObjectClosure *callee)
+static void call_fun(VM *vm, int arity, ObjectClosure *callee)
 {
   if (arity != callee->proto->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", callee->proto->arity,
@@ -499,7 +498,7 @@ static void call_fun(struct vm *vm, int arity, ObjectClosure *callee)
   frame_push(vm, callee);
 }
 
-static void call_native(struct vm *vm, int arity, ObjectNative *native)
+static void call_native(VM *vm, int arity, ObjectNative *native)
 {
   if (arity != native->arity) {
     vm_errorf(vm, "Expected %d arguments but got %d.", native->arity, arity);
@@ -510,7 +509,7 @@ static void call_native(struct vm *vm, int arity, ObjectNative *native)
   vm_push(vm, value);
 }
 
-void op_call(struct vm *vm)
+void op_call(VM *vm)
 {
   uint8_t arity = fetch_code(vm);
   Value vcallee = *(vm->sp - arity);
@@ -524,7 +523,7 @@ void op_call(struct vm *vm)
   }
 }
 
-void op_closure(struct vm *vm)
+void op_closure(VM *vm)
 {
   Value proto = fetch_constant(vm);
   ObjectClosure *closure = closure_new(value_as_fun(proto));
@@ -539,7 +538,7 @@ void op_closure(struct vm *vm)
   vm_push(vm, value_make_object((Object *)closure));
 }
 
-void op_return(struct vm *vm)
+void op_return(VM *vm)
 {
   Value retval = vm_pop(vm);
   frame_pop(vm);
@@ -550,7 +549,7 @@ void op_return(struct vm *vm)
   vm_push(vm, retval);
 }
 
-void op_print(struct vm *vm)
+void op_print(VM *vm)
 {
   Value value = vm_pop(vm);
   if (vm->error) {
@@ -560,7 +559,7 @@ void op_print(struct vm *vm)
   printf("\n");
 }
 
-static void vm_debug(struct vm *vm)
+static void vm_debug(VM *vm)
 {
   printf("======= DEBUG VM ======\n");
   printf("PC: %4d BP: %4ld NEXT OP: ", cur_frame(vm)->pc,

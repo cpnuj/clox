@@ -8,7 +8,7 @@
 #include "lexer.h"
 #include "vm.h"
 
-struct vm vm;
+VM vm;
 
 void interprete(char *src)
 {

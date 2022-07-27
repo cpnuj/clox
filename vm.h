@@ -4,16 +4,16 @@
 #include "chunk.h"
 #include "value.h"
 
-struct frame {
+typedef struct {
   int pc;
   Value *bp; // base pointer of this frame
   ObjectClosure *closure;
-};
+} CallFrame;
 
 #define STACK_MAX 256
 #define FRAME_MAX 256
 
-struct vm {
+typedef struct {
   int done;
   int error;
   char errmsg[128];
@@ -28,17 +28,17 @@ struct vm {
   Value stack[STACK_MAX];
   Value *sp; // Stack pointer
 
-  struct frame frames[FRAME_MAX];
+  CallFrame frames[FRAME_MAX];
   int cur_frame;
 
   // open_upvalues maintain upvalues still in stack
   ObjectUpValue *open_upvalues;
-};
+} VM;
 
-void vm_init(struct vm *vm);
-void vm_run(struct vm *vm);
-void vm_push(struct vm *vm, Value v);
-Value vm_pop(struct vm *vm);
-Value vm_top(struct vm *vm);
+void vm_init(VM *vm);
+void vm_run(VM *vm);
+void vm_push(VM *vm, Value v);
+Value vm_pop(VM *vm);
+Value vm_top(VM *vm);
 
 #endif
