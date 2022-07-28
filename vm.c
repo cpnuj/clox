@@ -106,8 +106,7 @@ static void close_upvalue(VM *vm, Value *location)
 {
   ObjectUpValue **head = &vm->open_upvalues;
   while (*head && (*head)->location >= location) {
-    // TODO: keep closed value inside ObjectUpValue
-    upvalue_close(*head, (Value *)reallocate(NULL, 0, sizeof(Value)));
+    upvalue_close(*head);
     *head = (*head)->next;
   }
 }
@@ -584,7 +583,7 @@ static void vm_debug(VM *vm)
   printf("UpValue\n");
   for (int i = 0; i < cur_frame(vm)->closure->upvalue_size; i++) {
     ObjectUpValue *up = cur_frame(vm)->closure->upvalues[i];
-    if (up->closed) {
+    if (up->location == &up->closed) {
       printf("%08ld  ", (uint64_t)(up->location));
     } else {
       printf("%08ld  ", (uint64_t)(up->location - vm->stack));

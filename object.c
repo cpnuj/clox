@@ -97,17 +97,15 @@ ObjectUpValue *upvalue_new(Value *location)
               NULL /* formater */);
 
   up->location = location;
-  up->closed = false;
+  up->closed = value_make_nil();
   up->next = NULL;
   return up;
 }
 
-// TODO: make Value closed inside ObjectUpValue
-void upvalue_close(ObjectUpValue *to_close, Value *new_location)
+void upvalue_close(ObjectUpValue *to_close)
 {
-  to_close->closed = true;
-  *new_location = *to_close->location;
-  to_close->location = new_location;
+  to_close->closed = *to_close->location;
+  to_close->location = &to_close->closed;
 }
 
 void closure_format(Object *c)

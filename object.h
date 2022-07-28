@@ -40,13 +40,13 @@ typedef struct Value Value;
 
 typedef struct ObjectUpvalue {
   Object base;
-  bool closed;
+  Value closed;
   Value *location;
   struct ObjectUpvalue *next;
 } ObjectUpValue;
 
 ObjectUpValue *upvalue_new(Value *);
-void upvalue_close(ObjectUpValue *, Value *);
+void upvalue_close(ObjectUpValue *);
 
 // ObjectClosure is created as a running function object in runtime
 typedef struct {
