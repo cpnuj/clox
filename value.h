@@ -12,7 +12,6 @@ typedef enum {
   VT_NUM,
   VT_BOOL,
   VT_OBJ,
-  VT_IDENT,
 } value_t;
 
 typedef enum {

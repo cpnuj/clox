@@ -459,7 +459,7 @@ static Context literal(Compiler *c)
 static Context variable(Compiler *c)
 {
   Token tk = prev(c);
-  Value name = value_make_ident(token_lexem_start(&tk), token_lexem_len(&tk));
+  Value name = value_make_string(token_lexem_start(&tk), token_lexem_len(&tk));
   return unary_context(tk.type, name);
 }
 

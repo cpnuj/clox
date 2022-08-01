@@ -152,14 +152,6 @@ Value native_clock(int arity, Value *argv)
   return value_make_number((double)clock() / CLOCKS_PER_SEC);
 }
 
-// value_make_ident makes a value with object string but as type VT_IDENT.
-Value value_make_ident(char *str, int len)
-{
-  Value value = value_make_string(str, len);
-  value.type = VT_IDENT;
-  return value;
-}
-
 Value value_make_string(char *str, int len)
 {
   Value value;

@@ -73,8 +73,6 @@ typedef struct {
 
 Value native_clock(int, Value *);
 
-#define is_ident(value) (value.type == VT_IDENT)
-
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
 

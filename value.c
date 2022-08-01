@@ -149,9 +149,6 @@ uint32_t value_hash(Value value)
     return hash_double(value_as_number(value));
   } else if (is_object(value)) {
     return value_as_obj(value)->hash;
-  } else if (value.type == VT_IDENT) {
-    // TODO: remove value ident
-    return value_as_obj(value)->hash;
   }
   panic("unknown type of value");
 }
@@ -180,7 +177,6 @@ bool value_equal(Value v1, Value v2)
   case VT_NUM:
     return value_as_number(v1) == value_as_number(v2);
   case VT_OBJ:
-  case VT_IDENT:
     return object_equal(value_as_obj(v1), value_as_obj(v2));
   default:
     panic("unknown value type");
@@ -204,10 +200,6 @@ void value_print(Value v)
     }
     break;
   case VT_OBJ:
-    object_print(value_as_obj(v));
-    break;
-  case VT_IDENT:
-    printf("ident ");
     object_print(value_as_obj(v));
     break;
   }

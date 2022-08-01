@@ -42,7 +42,7 @@ static void vm_debug(VM *vm);
 static void define_native(VM *vm, char *name, int arity, native_fn method)
 {
   Value native = value_make_native(arity, method);
-  map_put(&vm->globals, value_make_ident(name, strlen(name)), native);
+  map_put(&vm->globals, value_make_string(name, strlen(name)), native);
 }
 
 void vm_init(VM *vm)
@@ -413,7 +413,7 @@ void op_global(VM *vm)
 {
   Value name = fetch_constant(vm);
   Value value = vm_pop(vm);
-  if (!is_ident(name)) {
+  if (!is_string(name)) {
     panic("programming error: OP_GLOBAL operates on a non-ident name");
   }
   map_put(globals(vm), name, value);
