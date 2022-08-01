@@ -26,12 +26,30 @@ typedef enum {
 typedef struct Object {
   object_t type;
   uint32_t hash;
+
+  // size of one object alloc
+  int size;
+
+  // equal points to a function returning whether two objects are equal
   bool (*equal)(struct Object *, struct Object *);
+
+  // format points to a function to print the object
   void (*format)(struct Object *);
+
+  // destructor is called when the object is freed
+  void (*destructor)(struct Object *);
+
+  // next is the next object on our object heap
+  struct Object *next;
+
 } Object;
 
-void object_init(Object *obj, object_t type, uint32_t hash,
-                 bool (*)(Object *, Object *), void (*)(Object *));
+void trace_heap(void);
+
+Object *object_alloc(int size, object_t type, uint32_t hash,
+                     bool (*equal_fn)(Object *, Object *),
+                     void (*format)(Object *), void (*destrutor)(Object *));
+
 bool object_equal(Object *, Object *);
 void object_print(Object *);
 

@@ -17,13 +17,41 @@ uint32_t FNV1a_hash(const char *key, int length)
   return hash;
 }
 
-void object_init(Object *obj, object_t type, uint32_t hash,
-                 bool (*equal_fn)(Object *, Object *), void (*format)(Object *))
+// heap maintains a list of allocated object
+static Object *heap = NULL;
+
+static int heap_size = 0;
+
+void trace_heap()
 {
-  obj->type = type;
-  obj->hash = hash;
-  obj->equal = equal_fn;
-  obj->format = format;
+  Object *item = heap;
+  printf("===== Trace Heap Begin =====\n");
+  printf("Heap Size: %d Mem Alloc: %d\n", heap_size, mem_alloc());
+  while (item) {
+    object_print(item);
+    item = item->next;
+    printf("\n");
+  }
+  printf("===== Trace Heap End   =====\n");
+}
+
+// object_alloc allocates size memory for new object and set up corresponding
+// fields
+Object *object_alloc(int size, object_t type, uint32_t hash,
+                     bool (*equal_fn)(Object *, Object *),
+                     void (*format)(Object *), void (*destructor)(Object *))
+{
+  Object *item = (Object *)reallocate(NULL, 0, size);
+  item->next = heap;
+  heap = item;
+  heap_size += size;
+
+  item->type = type;
+  item->hash = hash;
+  item->size = size;
+  item->equal = equal_fn;
+  item->format = format;
+  item->destructor = destructor;
 }
 
 bool object_equal(Object *obj1, Object *obj2)

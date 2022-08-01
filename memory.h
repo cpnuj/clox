@@ -9,5 +9,6 @@
 #define free_array(type, ptr, size) (reallocate(ptr, sizeof(type) * (size), 0))
 
 void *reallocate(void *ptr, int oldSize, int newSize);
+int mem_alloc(void);
 
 #endif

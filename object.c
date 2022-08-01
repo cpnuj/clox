@@ -6,6 +6,8 @@
 #include "memory.h"
 #include "object.h"
 
+void none_destructor(Object *obj) { return; }
+
 void string_format(Object *obj) { printf("%s", ((ObjectString *)obj)->str); }
 
 Object *string_copy(char *src, int len)
@@ -15,10 +17,9 @@ Object *string_copy(char *src, int len)
 
   // We need one more byte for trailing \0
   size_t size = sizeof(*obj) + len + 1;
-  obj = (ObjectString *)reallocate(NULL, 0, size);
   hash = FNV1a_hash(src, len);
-
-  object_init((Object *)obj, OBJ_STRING, hash, string_equal, string_format);
+  obj = (ObjectString *)object_alloc(size, OBJ_STRING, hash, string_equal,
+                                     string_format, none_destructor);
 
   memcpy(obj->raw, src, len);
   obj->raw[len] = '\0';
@@ -33,10 +34,10 @@ Object *string_take(char *src, int len)
   ObjectString *obj;
   uint32_t hash;
 
-  obj = (ObjectString *)reallocate(NULL, 0, sizeof(ObjectString));
   hash = FNV1a_hash(src, len);
-
-  object_init((Object *)obj, OBJ_STRING, hash, string_equal, string_format);
+  obj = (ObjectString *)object_alloc(sizeof(ObjectString), OBJ_STRING, hash,
+                                     string_equal, string_format,
+                                     none_destructor);
 
   obj->len = len;
   obj->str = src;
@@ -78,9 +79,9 @@ Object *fun_new(int arity, ObjectString *name)
 {
   ObjectFunction *obj;
 
-  obj = (ObjectFunction *)reallocate(NULL, 0, sizeof(ObjectFunction));
-  object_init((Object *)obj, OBJ_FUNCTION, name->base.hash, function_equal,
-              function_format);
+  obj = (ObjectFunction *)object_alloc(sizeof(ObjectFunction), OBJ_FUNCTION,
+                                       name->base.hash, function_equal,
+                                       function_format, none_destructor);
 
   obj->arity = arity;
   obj->name = name;
@@ -91,10 +92,10 @@ Object *fun_new(int arity, ObjectString *name)
 
 ObjectUpValue *upvalue_new(Value *location)
 {
-  ObjectUpValue *up
-      = (ObjectUpValue *)reallocate(NULL, 0, sizeof(ObjectUpValue));
-  object_init((Object *)up, OBJ_UPVALUE, nohash, NULL /* equal_fn */,
-              NULL /* formater */);
+  ObjectUpValue *up;
+  up = (ObjectUpValue *)object_alloc(sizeof(ObjectUpValue), OBJ_UPVALUE, nohash,
+                                     NULL /* equal_fn */, NULL /* formater */,
+                                     none_destructor);
 
   up->location = location;
   up->closed = value_make_nil();
@@ -117,10 +118,10 @@ bool closure_equal(Object *c1, Object *c2) { return c1 == c2; }
 
 ObjectClosure *closure_new(ObjectFunction *proto)
 {
-  ObjectClosure *closure
-      = (ObjectClosure *)reallocate(NULL, 0, sizeof(ObjectClosure));
-  object_init((Object *)closure, OBJ_CLOSURE, proto->base.hash, closure_equal,
-              closure_format);
+  ObjectClosure *closure;
+  closure = (ObjectClosure *)object_alloc(sizeof(ObjectClosure), OBJ_CLOSURE,
+                                          proto->base.hash, closure_equal,
+                                          closure_format, none_destructor);
 
   closure->proto = proto;
   closure->upvalue_size = proto->upvalue_size;
@@ -137,9 +138,10 @@ void native_format(Object *native) { printf("<native fn>"); }
 
 ObjectNative *native_new(int arity, native_fn method)
 {
-  ObjectNative *obj = (ObjectNative *)reallocate(NULL, 0, sizeof(ObjectNative));
-  object_init((Object *)obj, OBJ_NATIVE, nohash, NULL /* equal_fn */,
-              native_format);
+  ObjectNative *obj;
+  obj = (ObjectNative *)object_alloc(sizeof(ObjectNative), OBJ_NATIVE, nohash,
+                                     NULL /* equal_fn */, native_format,
+                                     none_destructor);
   obj->arity = arity;
   obj->method = method;
   return obj;
