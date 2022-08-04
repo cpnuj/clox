@@ -983,7 +983,5 @@ int compile(char *src, ObjectFunction *fun, ValueArray *constants)
   debug_chunk(&fun->chunk, constants, fun->name->str);
 #endif
 
-  // trace_heap();
-
   return err;
 }

@@ -29,6 +29,9 @@ typedef struct Object {
   // size of one object alloc
   int size;
 
+  // marked is used in gc
+  bool marked;
+
   // equal points to a function returning whether two objects are equal
   bool (*equal)(struct Object *, struct Object *);
 
@@ -45,10 +48,13 @@ typedef struct Object {
 
 void trace_heap(void);
 
+void sweep_heap(void);
+
 Object *object_alloc(int size, object_t type, uint32_t hash,
                      bool (*equal_fn)(Object *, Object *),
                      void (*format)(Object *), void (*destrutor)(Object *));
 
+void object_free(Object *);
 bool object_equal(Object *, Object *);
 void object_print(Object *);
 

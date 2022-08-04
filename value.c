@@ -29,10 +29,26 @@ void trace_heap()
   printf("Heap Size: %d Mem Alloc: %d\n", heap_size, mem_alloc());
   while (item) {
     object_print(item);
+    printf(" marked %d\n", item->marked);
     item = item->next;
-    printf("\n");
   }
   printf("===== Trace Heap End   =====\n");
+}
+
+void sweep_heap(void)
+{
+  Object **objp = &heap;
+  while (*objp) {
+    Object *obj = *objp;
+    if ((obj)->marked != true) {
+      *objp = obj->next;
+      object_free(obj);
+      reallocate(obj, obj->size, 0);
+    } else {
+      (*objp)->marked = false;
+      objp = &(*objp)->next;
+    }
+  }
 }
 
 // object_alloc allocates size memory for new object and set up corresponding
@@ -43,6 +59,7 @@ Object *object_alloc(int size, object_t type, uint32_t hash,
 {
   Object *item = (Object *)reallocate(NULL, 0, size);
   item->next = heap;
+  item->marked = false;
   heap = item;
   heap_size += size;
 
@@ -53,6 +70,8 @@ Object *object_alloc(int size, object_t type, uint32_t hash,
   item->format = format;
   item->destructor = destructor;
 }
+
+void object_free(Object *obj) { return obj->destructor(obj); }
 
 bool object_equal(Object *obj1, Object *obj2)
 {

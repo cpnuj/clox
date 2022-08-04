@@ -113,3 +113,28 @@ int map_get(Map *map, Value key, Value *pvalue)
   }
   return 1;
 }
+
+MapIter *map_iter_new(Map *map)
+{
+  MapIter *iter = (MapIter *)reallocate(NULL, 0, sizeof(MapIter));
+  iter->pos = -1;
+  iter->map = map;
+  iter->key = value_make_nil();
+  iter->val = value_make_nil();
+  return iter;
+}
+
+bool map_iter_next(MapIter *iter)
+{
+  while (++iter->pos < iter->map->size) {
+    MapItem item = iter->map->items[iter->pos];
+    if (is_used(item)) {
+      iter->key = item.key;
+      iter->val = item.value;
+      return true;
+    }
+  }
+  return false;
+}
+
+void map_iter_close(MapIter *iter) { reallocate(iter, sizeof(MapIter), 0); }

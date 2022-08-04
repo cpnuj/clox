@@ -37,6 +37,7 @@ void op_print(VM *vm);
 
 static Map *globals(VM *vm);
 
+static void vm_gc(VM *vm);
 static void vm_debug(VM *vm);
 
 static void define_native(VM *vm, char *name, int arity, native_fn method)
@@ -149,6 +150,7 @@ void vm_run(VM *vm)
   while (1) {
 
 #ifdef DEBUG_RUNTIME
+    vm_gc(vm);
     vm_debug(vm);
 #endif
 
@@ -555,6 +557,98 @@ void op_print(VM *vm)
   }
   value_print(value);
   printf("\n");
+}
+
+static void mark_object(Object *obj, ValueArray *wset)
+{
+  if (obj->marked) {
+    return;
+  }
+  obj->marked = true;
+
+  switch (obj->type) {
+
+  case OBJ_STRING:
+    break;
+
+  case OBJ_FUNCTION: {
+    ObjectFunction *function = (ObjectFunction *)obj;
+    value_array_write(wset, value_make_object(function->name));
+  } break;
+
+  case OBJ_UPVALUE: {
+    ObjectUpValue *upvalue = (ObjectUpValue *)obj;
+    value_array_write(wset, *upvalue->location);
+  } break;
+
+  case OBJ_CLOSURE: {
+    ObjectClosure *closure = (ObjectClosure *)obj;
+    value_array_write(wset, value_make_object(closure->proto));
+    for (int i = 0; i < closure->upvalue_size; i++) {
+      value_array_write(wset, value_make_object(closure->upvalues[i]));
+    }
+  } break;
+
+  case OBJ_NATIVE:
+    break;
+
+  default:
+    panic("mark_value: unknown object type.");
+  }
+}
+
+static void mark_value(Value value, ValueArray *wset)
+{
+  if (!is_object(value)) {
+    return;
+  }
+  mark_object(value_as_obj(value), wset);
+}
+
+static void mark_root(VM *vm, ValueArray *wset)
+{
+  for (int i = 0; i < vm->constants.len; i++) {
+    value_array_write(wset, value_array_get(&vm->constants, i));
+  }
+
+  MapIter *iter = map_iter_new(&vm->globals);
+  while (map_iter_next(iter)) {
+    value_array_write(wset, iter->key);
+    value_array_write(wset, iter->val);
+  }
+  map_iter_close(iter);
+
+  for (Value *ss = vm->stack; ss <= vm->sp; ss++) {
+    value_array_write(wset, *ss);
+  }
+
+  for (int i = 0; i < vm->cur_frame; i++) {
+    value_array_write(wset, value_make_object(vm->frames[i].closure));
+  }
+
+  ObjectUpValue *upvalue = vm->open_upvalues;
+  while (upvalue) {
+    value_array_write(wset, value_make_object(upvalue));
+    upvalue = upvalue->next;
+  }
+}
+
+static void vm_gc(VM *vm)
+{
+  ValueArray wset;
+  value_array_init(&wset);
+
+  mark_root(vm, &wset);
+
+  for (int i = 0; i < wset.len; i++) {
+    mark_value(value_array_get(&wset, i), &wset);
+  }
+
+  trace_heap();
+  sweep_heap();
+  trace_heap();
+
+  value_array_free(&wset);
 }
 
 static void vm_debug(VM *vm)
