@@ -87,6 +87,30 @@ static int add_constant(Compiler *c, Value value)
   return c->constants->len - 1;
 }
 
+static Value make_string(Compiler *c, const char *src, int len)
+{
+  Value ret = value_make_nil();
+
+  MapIter *iter = map_iter_new(&c->interned_strings);
+  while (map_iter_next(iter)) {
+    if (len != value_as_string(iter->key)->len) {
+      continue;
+    }
+    if (strncmp(src, value_as_string(iter->key)->str, len) == 0) {
+      ret = iter->key;
+      break;
+    }
+  }
+  map_iter_close(iter);
+
+  if (is_nil(ret)) {
+    ret = value_make_object(string_copy(src, len));
+    map_put(&c->interned_strings, ret, value_make_nil());
+  }
+
+  return ret;
+}
+
 // make_constant returns the idx of constant value. If the value has been
 // created, return its idx. Else, add new constant to compiling chunk.
 static uint8_t make_constant(Compiler *c, Value value)
@@ -450,7 +474,7 @@ static Context literal(Compiler *c)
     v = value_make_number(strtod(token_lexem_start(&tk), NULL));
     break;
   case TK_STRING:
-    v = value_make_string(token_lexem_start(&tk) + 1, token_lexem_len(&tk) - 2);
+    v = make_string(c, token_lexem_start(&tk) + 1, token_lexem_len(&tk) - 2);
     break;
   }
   return unary_context(tk.type, v);
@@ -459,7 +483,7 @@ static Context literal(Compiler *c)
 static Context variable(Compiler *c)
 {
   Token tk = prev(c);
-  Value name = value_make_string(token_lexem_start(&tk), token_lexem_len(&tk));
+  Value name = make_string(c, token_lexem_start(&tk), token_lexem_len(&tk));
   return unary_context(tk.type, name);
 }
 
@@ -944,6 +968,7 @@ static void compiler_init(Compiler *c, char *src)
 
   lex_init(&c->lexer, src, strlen(src));
 
+  map_init(&c->interned_strings);
   map_init(&c->mconstants);
 
   // initial forward
@@ -959,7 +984,7 @@ static int compile_chunk(char *src, Chunk *chunk, ValueArray *constants)
 
   Scope root;
   scope_init(&root);
-  scope_add(&root, value_make_string("script", 6));
+  scope_add(&root, make_string(&c, "script", 6));
   c.cur_scope = &root;
 
   while (!match(&c, TK_EOF)) {

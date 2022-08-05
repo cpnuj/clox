@@ -35,6 +35,7 @@ typedef struct {
   Token curr;
   Token prev;
   ValueArray *constants;
+  Map interned_strings;
   Map mconstants; // map from value to idx in the constant list
   Scope *cur_scope;
   Chunk *cur_chunk; // Compiling chunk
