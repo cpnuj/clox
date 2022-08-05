@@ -68,7 +68,7 @@ bool string_equal(Object *s1, Object *s2)
 
 void function_format(Object *f)
 {
-  printf("<fn ");
+  printf("<fn prototype ");
   string_format((Object *)((ObjectFunction *)f)->name);
   printf(">");
 }
@@ -111,7 +111,9 @@ void upvalue_close(ObjectUpValue *to_close)
 
 void closure_format(Object *c)
 {
-  function_format((Object *)((ObjectClosure *)c)->proto);
+  printf("<fn ");
+  string_format((Object *)((ObjectClosure *)c)->proto->name);
+  printf(">");
 }
 
 bool closure_equal(Object *c1, Object *c2) { return c1 == c2; }

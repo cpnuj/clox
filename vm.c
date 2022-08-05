@@ -150,8 +150,8 @@ void vm_run(VM *vm)
   while (1) {
 
 #ifdef DEBUG_RUNTIME
-    vm_gc(vm);
     vm_debug(vm);
+    vm_gc(vm);
 #endif
 
     if (cur_frame(vm)->pc >= cur_chunk(vm)->len) {

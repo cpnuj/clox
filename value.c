@@ -28,8 +28,13 @@ void trace_heap()
   printf("===== Trace Heap Begin =====\n");
   printf("Heap Size: %d Mem Alloc: %d\n", heap_size, mem_alloc());
   while (item) {
+    if (item->marked) {
+      printf("mark    ");
+    } else {
+      printf("        ");
+    }
     object_print(item);
-    printf(" marked %d\n", item->marked);
+    printf("\n");
     item = item->next;
   }
   printf("===== Trace Heap End   =====\n");
