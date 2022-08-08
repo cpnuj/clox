@@ -34,6 +34,15 @@
 ./test/comments/unicode.lox
 ./test/constructor/default.lox
 ./test/empty_file.lox
+./test/field/call_function_field.lox
+./test/field/call_nonfunction_field.lox
+./test/field/set_evaluation_order.lox
+./test/field/set_on_bool.lox
+./test/field/set_on_class.lox
+./test/field/set_on_function.lox
+./test/field/set_on_nil.lox
+./test/field/set_on_string.lox
+./test/field/undefined.lox
 ./test/for/class_in_body.lox
 ./test/for/closure_in_body.lox
 ./test/for/fun_in_body.lox
@@ -70,6 +79,8 @@
 ./test/logical_operator/and_truth.lox
 ./test/logical_operator/or.lox
 ./test/logical_operator/or_truth.lox
+./test/method/not_found.lox
+./test/method/too_many_arguments.lox
 ./test/nil/literal.lox
 ./test/number/decimal_point_at_eof.lox
 ./test/number/leading_dot.lox
@@ -142,4 +153,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 144 Pass Rate: 54.14%
+=== Total: 266 Passed: 155 Pass Rate: 58.27%

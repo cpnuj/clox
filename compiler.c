@@ -412,6 +412,8 @@ static void eval(Compiler *c, Context context)
   }
   if (context.id == TK_IDENT) {
     getvar(c, context.first);
+  } else if (context.id == TK_DOT) {
+    emit_bytes(c, OP_GET_FIELD, make_constant(c, context.first));
   } else {
     emit_constant(c, context.first);
   }
@@ -527,15 +529,27 @@ static Context ret(Compiler *c)
 
 static Context assignment(Compiler *c, Context left)
 {
-  if (left.id != TK_IDENT) {
+  if (left.id != TK_IDENT && left.id != TK_DOT) {
     errorf(c, "Invalid assignment target.");
     return empty_context(TK_ERR);
   }
   Token tk = prev(c);
   Context right = expression(c, bp_of(tk) - 1);
   eval(c, right);
-  setvar(c, left.first);
+  if (left.id == TK_IDENT) {
+    setvar(c, left.first);
+  } else {
+    emit_bytes(c, OP_SET_FIELD, make_constant(c, left.first));
+  }
   return empty_context(tk.type);
+}
+
+static Context dot(Compiler *c, Context left)
+{
+  consume(c, TK_IDENT, "Expect property name after '.'.");
+  Value field = variable(c).first;
+  eval(c, left);
+  return unary_context(TK_DOT, field);
 }
 
 static op_code infix_opcode(Token token)
@@ -949,7 +963,7 @@ static void setup()
   just_symbol(TK_LEFT_BRACE);
   just_symbol(TK_RIGHT_BRACE);
   just_symbol(TK_COMMA);
-  just_symbol(TK_DOT);
+  led_symbol(TK_DOT, BP_CALL, dot);
   just_symbol(TK_SEMICOLON);
 
   // Keywords

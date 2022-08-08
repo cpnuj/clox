@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "chunk.h"
+#include "map.h"
 #include "value.h"
 
 // ObjectString represents a string object in clox.
@@ -78,6 +79,7 @@ ObjectClass *class_new(ObjectString *);
 typedef struct {
   Object base;
   ObjectClass *klass;
+  Map fields;
 } ObjectInstance;
 
 ObjectInstance *instance_new(ObjectClass *);
@@ -97,6 +99,9 @@ ObjectInstance *instance_new(ObjectClass *);
 #define is_class(value)                                                        \
   (is_object(value) && object_is(value_as_obj(value), OBJ_CLASS))
 
+#define is_instance(value)                                                     \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_INSTANCE))
+
 // Macros cast value to specific object
 #define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
 
@@ -107,6 +112,9 @@ ObjectInstance *instance_new(ObjectClass *);
 #define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
 
 #define value_as_class(value) (object_as(value_as_obj(value), ObjectClass))
+
+#define value_as_instance(value)                                               \
+  (object_as(value_as_obj(value), ObjectInstance))
 
 Value value_make_ident(char *, int);
 Value value_make_string(char *, int);

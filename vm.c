@@ -33,6 +33,8 @@ void op_jmp_on_false(VM *vm);
 void op_call(VM *vm);
 void op_closure(VM *vm);
 void op_class(VM *vm);
+void op_get_filed(VM *vm);
+void op_set_filed(VM *vm);
 void op_return(VM *vm);
 void op_print(VM *vm);
 
@@ -298,6 +300,11 @@ void run_instruction(VM *vm, uint8_t i)
     return op_closure(vm);
   case OP_CLASS:
     return op_class(vm);
+  case OP_GET_FIELD:
+    return op_get_filed(vm);
+  case OP_SET_FIELD:
+    return op_set_filed(vm);
+
   case OP_RETURN:
     return op_return(vm);
 
@@ -562,6 +569,38 @@ void op_class(VM *vm)
   Value cname = fetch_constant(vm);
   ObjectClass *klass = class_new(value_as_string(cname));
   vm_push(vm, value_make_object(klass));
+}
+
+void op_get_filed(VM *vm)
+{
+  Value field = fetch_constant(vm);
+  Value vins = vm_pop(vm);
+  if (!is_instance(vins)) {
+    vm_errorf(vm, "Only instances have fields.");
+    return;
+  }
+
+  ObjectInstance *ins = value_as_instance(vins);
+  Value value;
+  if (map_get(&ins->fields, field, &value)) {
+    vm_push(vm, value);
+  } else {
+    ObjectString *field_name = value_as_string(field);
+    vm_errorf(vm, "Undefined property '%s'.", field_name->str);
+  }
+}
+
+void op_set_filed(VM *vm)
+{
+  Value field = fetch_constant(vm);
+  Value value = vm_pop(vm);
+  Value vins = vm_pop(vm);
+  if (!is_instance(vins)) {
+    vm_errorf(vm, "Only instances have fields.");
+    return;
+  }
+  ObjectInstance *ins = value_as_instance(vins);
+  map_put(&ins->fields, field, value);
 }
 
 void op_return(VM *vm)

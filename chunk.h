@@ -40,6 +40,8 @@ typedef enum {
   OP_CLOSURE,
   OP_CALL,
   OP_CLASS,
+  OP_GET_FIELD,
+  OP_SET_FIELD,
 } op_code;
 
 typedef struct {

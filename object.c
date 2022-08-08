@@ -206,6 +206,7 @@ ObjectInstance *instance_new(ObjectClass *klass)
                                        none_destructor);
 
   ins->klass = klass;
+  map_init(&ins->fields);
   return ins;
 }
 

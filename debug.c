@@ -101,7 +101,11 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return constant_instruction("OP_CALL", chunk, NULL, offset);
 
   case OP_CLASS:
-    return constant_instruction("OP_CLASS", chunk, NULL, offset);
+    return constant_instruction("OP_CLASS", chunk, constants, offset);
+  case OP_GET_FIELD:
+    return constant_instruction("OP_GET_FIELD", chunk, constants, offset);
+  case OP_SET_FIELD:
+    return constant_instruction("OP_SET_FIELD", chunk, constants, offset);
 
   default:
     printf("Unknown opcode %d\n", instruction);
