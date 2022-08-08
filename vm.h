@@ -34,6 +34,9 @@ typedef struct {
 
   // open_upvalues maintain upvalues still in stack
   ObjectUpValue *open_upvalues;
+
+  // gc_threshold is the threshold for next gc
+  int gc_threshold;
 } VM;
 
 void vm_init(VM *vm);

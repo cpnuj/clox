@@ -55,6 +55,8 @@ void vm_init(VM *vm)
   value_array_init(&vm->constants);
   map_init(&vm->globals);
 
+  vm->gc_threshold = 1024;
+
   define_native(vm, "clock", 0, native_clock);
 }
 
@@ -149,7 +151,14 @@ void vm_run(VM *vm)
   frame_push(vm, vm->main_closure);
   while (1) {
 
-#ifdef DEBUG_RUNTIME
+#define GC_HEAP_GROW_FACTOR 2
+
+    if (mem_alloc() >= vm->gc_threshold) {
+      vm_gc(vm);
+      vm->gc_threshold = mem_alloc() * GC_HEAP_GROW_FACTOR;
+    }
+
+#ifdef DEBUG_GC
     vm_debug(vm);
     vm_gc(vm);
 #endif
@@ -622,7 +631,7 @@ static void mark_root(VM *vm, ValueArray *wset)
     value_array_write(wset, *ss);
   }
 
-  for (int i = 0; i < vm->cur_frame; i++) {
+  for (int i = vm->cur_frame; i >= 0; i--) {
     value_array_write(wset, value_make_object(vm->frames[i].closure));
   }
 
@@ -644,9 +653,15 @@ static void vm_gc(VM *vm)
     mark_value(value_array_get(&wset, i), &wset);
   }
 
+#ifdef DEBUG_GC
   trace_heap();
+#endif
+
   sweep_heap();
+
+#ifdef DEBUG_GC
   trace_heap();
+#endif
 
   value_array_free(&wset);
 }
@@ -657,6 +672,13 @@ static void vm_debug(VM *vm)
   printf("PC: %4d BP: %4ld NEXT OP: ", cur_frame(vm)->pc,
          (uint64_t)(cur_frame(vm)->bp - vm->stack));
   debug_instruction(cur_chunk(vm), &vm->constants, cur_frame(vm)->pc);
+
+  printf("Call Frame\n");
+  for (int i = vm->cur_frame; i >= 0; i--) {
+    value_print(value_make_object(vm->frames[i].closure));
+    printf("\n");
+  }
+  printf("\n");
 
   printf("STACK\n");
   for (Value *i = vm->stack; i <= vm->sp; i++) {

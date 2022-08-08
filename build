@@ -4,6 +4,6 @@ gcc *.c -O3 -o clox
 
 if [ "X$1" = 'X-debug' ]; then
   gcc *.c -g -DDEBUG -o clox-debug-compiler
-  gcc *.c -g -DDEBUG_RUNTIME -o clox-debug-runtime
+  gcc *.c -g -DDEBUG_RUNTIME -DDEBUG_GC -o clox-debug-runtime
 fi
 

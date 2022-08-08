@@ -20,13 +20,11 @@ uint32_t FNV1a_hash(const char *key, int length)
 // heap maintains a list of allocated object
 static Object *heap = NULL;
 
-static int heap_size = 0;
-
 void trace_heap()
 {
   Object *item = heap;
   printf("===== Trace Heap Begin =====\n");
-  printf("Heap Size: %d Mem Alloc: %d\n", heap_size, mem_alloc());
+  printf("Heap Size: %d\n", mem_alloc());
   while (item) {
     if (item->marked) {
       printf("mark    ");
@@ -66,7 +64,6 @@ Object *object_alloc(int size, object_t type, uint32_t hash,
   item->next = heap;
   item->marked = false;
   heap = item;
-  heap_size += size;
 
   item->type = type;
   item->hash = hash;

@@ -10,6 +10,14 @@ void none_destructor(Object *obj) { return; }
 
 void string_format(Object *obj) { printf("%s", ((ObjectString *)obj)->str); }
 
+void string_destructor(Object *obj)
+{
+  ObjectString *string = (ObjectString *)obj;
+  if (string->str != string->raw) {
+    reallocate(string->str, string->len + 1, 0);
+  }
+}
+
 Object *string_copy(char *src, int len)
 {
   ObjectString *obj;
@@ -19,7 +27,7 @@ Object *string_copy(char *src, int len)
   size_t size = sizeof(*obj) + len + 1;
   hash = FNV1a_hash(src, len);
   obj = (ObjectString *)object_alloc(size, OBJ_STRING, hash, string_equal,
-                                     string_format, none_destructor);
+                                     string_format, string_destructor);
 
   memcpy(obj->raw, src, len);
   obj->raw[len] = '\0';
@@ -75,13 +83,18 @@ void function_format(Object *f)
 
 bool function_equal(Object *f1, Object *f2) { return f1 == f2; }
 
+void function_destructor(Object *obj)
+{
+  chunk_free(&((ObjectFunction *)obj)->chunk);
+}
+
 Object *fun_new(int arity, ObjectString *name)
 {
   ObjectFunction *obj;
 
   obj = (ObjectFunction *)object_alloc(sizeof(ObjectFunction), OBJ_FUNCTION,
                                        name->base.hash, function_equal,
-                                       function_format, none_destructor);
+                                       function_format, function_destructor);
 
   obj->arity = arity;
   obj->name = name;
@@ -90,11 +103,16 @@ Object *fun_new(int arity, ObjectString *name)
   return (Object *)obj;
 }
 
+void upvalue_format(Object *upvalue)
+{
+  printf("<upvalue %p>", ((ObjectUpValue *)upvalue)->location);
+}
+
 ObjectUpValue *upvalue_new(Value *location)
 {
   ObjectUpValue *up;
   up = (ObjectUpValue *)object_alloc(sizeof(ObjectUpValue), OBJ_UPVALUE, nohash,
-                                     NULL /* equal_fn */, NULL /* formater */,
+                                     NULL /* equal_fn */, upvalue_format,
                                      none_destructor);
 
   up->location = location;
@@ -116,6 +134,13 @@ void closure_format(Object *c)
   printf(">");
 }
 
+void closure_destructor(Object *obj)
+{
+  ObjectClosure *closure = (ObjectClosure *)obj;
+  reallocate(closure->upvalues, sizeof(ObjectUpValue *) * closure->upvalue_size,
+             0);
+}
+
 bool closure_equal(Object *c1, Object *c2) { return c1 == c2; }
 
 ObjectClosure *closure_new(ObjectFunction *proto)
@@ -123,7 +148,7 @@ ObjectClosure *closure_new(ObjectFunction *proto)
   ObjectClosure *closure;
   closure = (ObjectClosure *)object_alloc(sizeof(ObjectClosure), OBJ_CLOSURE,
                                           proto->base.hash, closure_equal,
-                                          closure_format, none_destructor);
+                                          closure_format, closure_destructor);
 
   closure->proto = proto;
   closure->upvalue_size = proto->upvalue_size;
