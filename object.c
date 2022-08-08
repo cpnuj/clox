@@ -179,6 +179,36 @@ Value native_clock(int arity, Value *argv)
   return value_make_number((double)clock() / CLOCKS_PER_SEC);
 }
 
+void class_format(Object *klass) { object_print(((ObjectClass *)klass)->name); }
+
+ObjectClass *class_new(ObjectString *name)
+{
+  ObjectClass *klass;
+  klass = (ObjectClass *)object_alloc(sizeof(ObjectClass), OBJ_CLASS, nohash,
+                                      NULL, class_format, none_destructor);
+
+  klass->name = name;
+  return klass;
+}
+
+void instance_format(Object *obj)
+{
+  ObjectInstance *ins = (ObjectInstance *)obj;
+  class_format(ins->klass);
+  printf(" instance");
+}
+
+ObjectInstance *instance_new(ObjectClass *klass)
+{
+  ObjectInstance *ins;
+  ins = (ObjectInstance *)object_alloc(sizeof(ObjectInstance), OBJ_INSTANCE,
+                                       nohash, NULL, instance_format,
+                                       none_destructor);
+
+  ins->klass = klass;
+  return ins;
+}
+
 Value value_make_string(char *str, int len)
 {
   Value value;

@@ -100,6 +100,9 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
   case OP_CALL:
     return constant_instruction("OP_CALL", chunk, NULL, offset);
 
+  case OP_CLASS:
+    return constant_instruction("OP_CLASS", chunk, NULL, offset);
+
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;

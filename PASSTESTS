@@ -13,7 +13,9 @@
 ./test/call/bool.lox
 ./test/call/nil.lox
 ./test/call/num.lox
+./test/call/object.lox
 ./test/call/string.lox
+./test/class/empty.lox
 ./test/closure/assign_to_closure.lox
 ./test/closure/assign_to_shadowed_later.lox
 ./test/closure/close_over_function_parameter.lox
@@ -30,6 +32,7 @@
 ./test/comments/only_line_comment.lox
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/unicode.lox
+./test/constructor/default.lox
 ./test/empty_file.lox
 ./test/for/class_in_body.lox
 ./test/for/closure_in_body.lox
@@ -139,4 +142,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 141 Pass Rate: 53.01%
+=== Total: 266 Passed: 144 Pass Rate: 54.14%

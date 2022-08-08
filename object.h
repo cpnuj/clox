@@ -66,12 +66,21 @@ typedef struct {
   native_fn method;
 } ObjectNative;
 
-#define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
-
-#define is_native(value)                                                       \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_NATIVE))
-
 Value native_clock(int, Value *);
+
+typedef struct {
+  Object base;
+  ObjectString *name;
+} ObjectClass;
+
+ObjectClass *class_new(ObjectString *);
+
+typedef struct {
+  Object base;
+  ObjectClass *klass;
+} ObjectInstance;
+
+ObjectInstance *instance_new(ObjectClass *);
 
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
@@ -82,12 +91,22 @@ Value native_clock(int, Value *);
 #define is_closure(value)                                                      \
   (is_object(value) && object_is(value_as_obj(value), OBJ_CLOSURE))
 
+#define is_native(value)                                                       \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_NATIVE))
+
+#define is_class(value)                                                        \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_CLASS))
+
 // Macros cast value to specific object
 #define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
 
 #define value_as_fun(value) (object_as(value_as_obj(value), ObjectFunction))
 
 #define value_as_closure(value) (object_as(value_as_obj(value), ObjectClosure))
+
+#define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
+
+#define value_as_class(value) (object_as(value_as_obj(value), ObjectClass))
 
 Value value_make_ident(char *, int);
 Value value_make_string(char *, int);

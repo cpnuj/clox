@@ -39,6 +39,7 @@ typedef enum {
   OP_JMP_ON_FALSE, // condition jump
   OP_CLOSURE,
   OP_CALL,
+  OP_CLASS,
 } op_code;
 
 typedef struct {

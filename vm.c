@@ -32,6 +32,7 @@ void op_jmp_back(VM *vm);
 void op_jmp_on_false(VM *vm);
 void op_call(VM *vm);
 void op_closure(VM *vm);
+void op_class(VM *vm);
 void op_return(VM *vm);
 void op_print(VM *vm);
 
@@ -295,6 +296,8 @@ void run_instruction(VM *vm, uint8_t i)
     return op_call(vm);
   case OP_CLOSURE:
     return op_closure(vm);
+  case OP_CLASS:
+    return op_class(vm);
   case OP_RETURN:
     return op_return(vm);
 
@@ -518,6 +521,11 @@ static void call_native(VM *vm, int arity, ObjectNative *native)
   vm_push(vm, value);
 }
 
+static void call_initializer(VM *vm, int arity, ObjectClass *klass)
+{
+  vm_push(vm, value_make_object(instance_new(klass)));
+}
+
 void op_call(VM *vm)
 {
   uint8_t arity = fetch_code(vm);
@@ -527,6 +535,8 @@ void op_call(VM *vm)
     call_fun(vm, arity, value_as_closure(vcallee));
   } else if (is_native(vcallee)) {
     call_native(vm, arity, value_as_native(vcallee));
+  } else if (is_class(vcallee)) {
+    call_initializer(vm, arity, value_as_class(vcallee));
   } else {
     vm_errorf(vm, "Can only call functions and classes.");
   }
@@ -545,6 +555,13 @@ void op_closure(VM *vm)
     closure->upvalues[i] = open_upvalue(vm, location);
   }
   vm_push(vm, value_make_object((Object *)closure));
+}
+
+void op_class(VM *vm)
+{
+  Value cname = fetch_constant(vm);
+  ObjectClass *klass = class_new(value_as_string(cname));
+  vm_push(vm, value_make_object(klass));
 }
 
 void op_return(VM *vm)
@@ -600,6 +617,16 @@ static void mark_object(Object *obj, ValueArray *wset)
 
   case OBJ_NATIVE:
     break;
+
+  case OBJ_CLASS: {
+    ObjectClass *klass = (ObjectClass *)obj;
+    value_array_write(wset, value_make_object(klass->name));
+  }
+
+  case OBJ_INSTANCE: {
+    ObjectInstance *ins = (ObjectInstance *)obj;
+    value_array_write(wset, value_make_object(ins->klass));
+  }
 
   default:
     panic("mark_value: unknown object type.");

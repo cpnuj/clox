@@ -877,12 +877,26 @@ static void fun_declaration(Compiler *c)
   defvar(c, fname);
 }
 
+static void class_declaration(Compiler *c)
+{
+  consume(c, TK_IDENT, "Expect class name.");
+  Value cname = variable(c).first;
+
+  emit_bytes(c, OP_CLASS, make_constant(c, cname));
+  defvar(c, cname);
+
+  consume(c, TK_LEFT_BRACE, "Expect '{' before class body.");
+  consume(c, TK_RIGHT_BRACE, "Expect '}' after class body.");
+}
+
 static void declaration(Compiler *c)
 {
   if (match(c, TK_VAR)) {
     var_declaration(c);
   } else if (match(c, TK_FUN)) {
     fun_declaration(c);
+  } else if (match(c, TK_CLASS)) {
+    class_declaration(c);
   } else {
     statement(c);
   }

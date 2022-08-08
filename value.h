@@ -20,6 +20,8 @@ typedef enum {
   OBJ_UPVALUE,
   OBJ_CLOSURE,
   OBJ_NATIVE,
+  OBJ_CLASS,
+  OBJ_INSTANCE,
 } object_t;
 
 typedef struct Object {
