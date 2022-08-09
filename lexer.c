@@ -113,15 +113,13 @@ token_t lex_number(Lexer *l)
       lexer_forward(l);
     } else if (peek == '.') {
       if (hasDot) {
-        lexer_error(l, "expect digit");
-        return TK_ERR;
+        return TK_NUMBER;
+      }
+      if (!isdigit(lexer_peeknext(l))) {
+        return TK_NUMBER;
       }
       hasDot = 1;
       lexer_forward(l);
-      if (!isdigit(lexer_peek(l))) {
-        lexer_error(l, "Expect property name after '.'.");
-        return TK_ERR;
-      }
     } else {
       return TK_NUMBER;
     }

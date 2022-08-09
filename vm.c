@@ -612,7 +612,7 @@ void op_get_filed(VM *vm)
   Value field = fetch_constant(vm);
   Value vins = vm_pop(vm);
   if (!is_instance(vins)) {
-    vm_errorf(vm, "Only instances have fields.");
+    vm_errorf(vm, "Only instances have properties.");
     return;
   }
 

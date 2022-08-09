@@ -553,6 +553,12 @@ static Context assignment(Compiler *c, Context left)
     errorf(c, "Invalid assignment target.");
     return empty_context(TK_ERR);
   }
+  if (left.id == TK_IDENT
+      && value_equal(left.first, make_string(c, "this", 4))) {
+    errorf(c, "Invalid assignment target.");
+    return empty_context(TK_ERR);
+  }
+
   Token tk = prev(c);
   Context right = expression(c, bp_of(tk) - 1);
   eval(c, right);
@@ -782,7 +788,7 @@ static void for_stmt(Compiler *c)
 static void expr_stmt(Compiler *c)
 {
   eval(c, expression(c, BP_NONE));
-  consume(c, TK_SEMICOLON, "Expect ';' after expression declaration.");
+  consume(c, TK_SEMICOLON, "Expect ';' after expression.");
   emit_byte(c, OP_POP);
 }
 

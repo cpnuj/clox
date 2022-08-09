@@ -5,6 +5,7 @@
 ./test/assignment/local.lox
 ./test/assignment/prefix_operator.lox
 ./test/assignment/syntax.lox
+./test/assignment/to_this.lox
 ./test/assignment/undefined.lox
 ./test/block/empty.lox
 ./test/block/scope.lox
@@ -47,9 +48,17 @@
 ./test/constructor/return_in_nested_function.lox
 ./test/constructor/return_value.lox
 ./test/empty_file.lox
+./test/expressions/evaluate.lox
+./test/expressions/parse.lox
 ./test/field/call_function_field.lox
 ./test/field/call_nonfunction_field.lox
 ./test/field/get_and_set_method.lox
+./test/field/get_on_bool.lox
+./test/field/get_on_class.lox
+./test/field/get_on_function.lox
+./test/field/get_on_nil.lox
+./test/field/get_on_num.lox
+./test/field/get_on_string.lox
 ./test/field/many.lox
 ./test/field/method.lox
 ./test/field/method_binds_this.lox
@@ -59,6 +68,7 @@
 ./test/field/set_on_class.lox
 ./test/field/set_on_function.lox
 ./test/field/set_on_nil.lox
+./test/field/set_on_num.lox
 ./test/field/set_on_string.lox
 ./test/field/undefined.lox
 ./test/for/class_in_body.lox
@@ -150,6 +160,10 @@
 ./test/return/in_function.lox
 ./test/return/in_method.lox
 ./test/return/return_nil_if_no_value.lox
+./test/scanning/identifiers.lox
+./test/scanning/numbers.lox
+./test/scanning/strings.lox
+./test/scanning/whitespace.lox
 ./test/string/literals.lox
 ./test/string/multiline.lox
 ./test/this/closure.lox
@@ -185,4 +199,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 255 Passed: 187 Pass Rate: 73.33%
+=== Total: 255 Passed: 201 Pass Rate: 78.82%
