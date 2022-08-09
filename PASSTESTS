@@ -35,14 +35,25 @@
 ./test/comments/only_line_comment.lox
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/unicode.lox
+./test/constructor/arguments.lox
+./test/constructor/call_init_early_return.lox
+./test/constructor/call_init_explicitly.lox
 ./test/constructor/default.lox
+./test/constructor/default_arguments.lox
+./test/constructor/early_return.lox
+./test/constructor/extra_arguments.lox
 ./test/constructor/init_not_method.lox
+./test/constructor/missing_arguments.lox
+./test/constructor/return_in_nested_function.lox
+./test/constructor/return_value.lox
 ./test/empty_file.lox
 ./test/field/call_function_field.lox
 ./test/field/call_nonfunction_field.lox
 ./test/field/get_and_set_method.lox
+./test/field/many.lox
 ./test/field/method.lox
 ./test/field/method_binds_this.lox
+./test/field/on_instance.lox
 ./test/field/set_evaluation_order.lox
 ./test/field/set_on_bool.lox
 ./test/field/set_on_class.lox
@@ -174,4 +185,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 176 Pass Rate: 66.17%
+=== Total: 266 Passed: 187 Pass Rate: 70.30%

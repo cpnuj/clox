@@ -1,7 +1,7 @@
 #include "memory.h"
 #include <stdlib.h>
 
-static int alloc_size = 0;
+static unsigned int alloc_size = 0;
 
 void *reallocate(void *ptr, int oldSize, int newSize)
 {
@@ -13,4 +13,4 @@ void *reallocate(void *ptr, int oldSize, int newSize)
   return realloc(ptr, newSize);
 }
 
-int mem_alloc() { return alloc_size; }
+unsigned int mem_alloc() { return alloc_size; }

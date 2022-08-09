@@ -43,6 +43,9 @@ typedef struct {
   // in_class is true while compiling class declaration
   bool in_class;
 
+  // in_initializer is true while compiling a class initializer
+  bool in_initializer;
+
   int error;
   int panic;
   char errmsg[128];

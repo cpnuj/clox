@@ -526,12 +526,23 @@ static Context ret(Compiler *c)
 {
   if (is_global(c->cur_scope)) {
     errorf(c, "Can't return from top-level code.");
+    return empty_context(TK_ERR);
   }
-  if (!check(c, TK_SEMICOLON)) {
-    eval(c, expression(c, BP_NONE));
+
+  if (c->in_initializer) {
+    if (!check(c, TK_SEMICOLON)) {
+      errorf(c, "Can't return a value from an initializer.");
+      return empty_context(TK_ERR);
+    }
+    getvar(c, make_string(c, "this", 4));
   } else {
-    emit_constant(c, value_make_nil());
+    if (!check(c, TK_SEMICOLON)) {
+      eval(c, expression(c, BP_NONE));
+    } else {
+      emit_constant(c, value_make_nil());
+    }
   }
+
   emit_return(c);
   return empty_context(TK_RETURN);
 }
@@ -875,7 +886,12 @@ static void function(Compiler *c, Value fname, bool is_method)
   c->cur_chunk = &funobj->chunk;
 
   block_stmt(c);
-  emit_constant(c, value_make_nil());
+
+  if (c->in_initializer) {
+    getvar(c, make_string(c, "this", 4));
+  } else {
+    emit_constant(c, value_make_nil());
+  }
   emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
@@ -908,14 +924,28 @@ static void fun_declaration(Compiler *c)
     errorf(c, "Already a variable with this name in this scope.");
     return;
   }
+
+  bool old_in_initializer = c->in_initializer;
+  c->in_initializer = false;
+
   function(c, fname, false /* is_method */);
+
+  c->in_initializer = old_in_initializer;
 }
 
 static void method(Compiler *c)
 {
   consume(c, TK_IDENT, "Expect method name.");
   Value fname = variable(c).first;
+
+  bool old_in_initializer = c->in_initializer;
+  if (value_equal(fname, make_string(c, "init", 4))) {
+    c->in_initializer = true;
+  }
+
   function(c, fname, true /* is_method */);
+
+  c->in_initializer = old_in_initializer;
 }
 
 static void class_declaration(Compiler *c)
@@ -1051,6 +1081,7 @@ static int compile_chunk(char *src, Chunk *chunk, ValueArray *constants)
   compiler_init(&c, src);
   c.cur_chunk = chunk;
   c.constants = constants;
+  make_constant(&c, make_string(&c, "init", 4));
 
   Scope root;
   scope_init(&root);

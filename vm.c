@@ -56,10 +56,13 @@ void vm_init(VM *vm)
   vm->error = 0;
   vm->vmain
       = value_make_fun(0, value_as_string(value_make_string("script", 6)));
+
   value_array_init(&vm->constants);
+  value_array_write(&vm->constants, value_make_object(string_copy("init", 4)));
+
   map_init(&vm->globals);
 
-  vm->gc_threshold = 1024;
+  vm->gc_threshold = 1024 * 1024;
 
   define_native(vm, "clock", 0, native_clock);
 }
@@ -534,15 +537,34 @@ static void call_native(VM *vm, int arity, ObjectNative *native)
   vm_push(vm, value);
 }
 
-static void call_initializer(VM *vm, int arity, ObjectClass *klass)
+static inline Value get_init_const(VM *vm)
 {
-  vm_push(vm, value_make_object(instance_new(klass)));
+  return value_array_get(&vm->constants, 0);
 }
 
 static void call_bound_method(VM *vm, int arity, ObjectBoundMethod *bm)
 {
   call_fun(vm, arity, bm->method);
   vm_push(vm, value_make_object(bm->receiver));
+}
+
+static void call_initializer(VM *vm, int arity, ObjectClass *klass)
+{
+  ObjectInstance *ins = instance_new(klass);
+
+  Value initializer_value;
+  if (map_get(&klass->methods, get_init_const(vm), &initializer_value)) {
+    ObjectClosure *initializer
+        = (ObjectClosure *)value_as_obj(initializer_value);
+    ObjectBoundMethod *bm = bound_method_new(initializer, ins);
+    call_bound_method(vm, arity, bm);
+  } else {
+    if (arity > 0) {
+      vm_errorf(vm, "Expected 0 arguments but got %d.", arity);
+      return;
+    }
+    vm_push(vm, value_make_object(ins));
+  }
 }
 
 void op_call(VM *vm)
@@ -618,6 +640,7 @@ void op_set_filed(VM *vm)
   }
   ObjectInstance *ins = value_as_instance(vins);
   map_put(&ins->fields, field, value);
+  vm_push(vm, value);
 }
 
 void op_method(VM *vm)
@@ -696,19 +719,19 @@ static void mark_object(Object *obj, ValueArray *wset)
     ObjectClass *klass = (ObjectClass *)obj;
     value_array_write(wset, value_make_object(klass->name));
     mark_map(&klass->methods, wset);
-  }
+  } break;
 
   case OBJ_INSTANCE: {
     ObjectInstance *ins = (ObjectInstance *)obj;
     value_array_write(wset, value_make_object(ins->klass));
     mark_map(&ins->fields, wset);
-  }
+  } break;
 
   case OBJ_BOUND_METHOD: {
     ObjectBoundMethod *bm = (ObjectBoundMethod *)obj;
     value_array_write(wset, value_make_object(bm->method));
     value_array_write(wset, value_make_object(bm->receiver));
-  }
+  } break;
 
   default:
     panic("mark_value: unknown object type.");
