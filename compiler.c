@@ -486,7 +486,16 @@ static Context variable(Compiler *c)
 {
   Token tk = prev(c);
   Value name = make_string(c, token_lexem_start(&tk), token_lexem_len(&tk));
-  return unary_context(tk.type, name);
+  return unary_context(TK_IDENT, name);
+}
+
+static Context this(Compiler *c)
+{
+  if (!c->in_class) {
+    errorf(c, "Can't use 'this' outside of a class.");
+    return empty_context(TK_ERR);
+  }
+  return variable(c);
 }
 
 static Context negative(Compiler *c)
@@ -823,16 +832,8 @@ static void var_declaration(Compiler *c)
   consume(c, TK_SEMICOLON, "Expect ';' after variable declaration.");
 }
 
-static void fun_declaration(Compiler *c)
+static void function(Compiler *c, Value fname, bool is_method)
 {
-  consume(c, TK_IDENT, "Expect function name.");
-  Value fname = variable(c).first;
-
-  if (find_local(c->cur_scope, fname, FIND_CUR) != -1) {
-    errorf(c, "Already a variable with this name in this scope.");
-    return;
-  }
-
   consume(c, TK_LEFT_PAREN, "Expect '(' after function name.");
 
   // parse parameters
@@ -862,6 +863,9 @@ static void fun_declaration(Compiler *c)
   for (int i = 0; i < arity; i++) {
     defvar(c, paras[i]);
   }
+  if (is_method) {
+    defvar(c, make_string(c, "this", 4));
+  }
 
   consume(c, TK_LEFT_BRACE, "Expect '{' before function body.");
 
@@ -888,19 +892,55 @@ static void fun_declaration(Compiler *c)
     emit_byte(c, (uint8_t)scope.upvalues[i].idx);
     emit_byte(c, scope.upvalues[i].from_local ? 1 : 0);
   }
-  defvar(c, fname);
+
+  if (is_method) {
+    emit_bytes(c, OP_METHOD, make_constant(c, fname));
+  } else {
+    defvar(c, fname);
+  }
+}
+
+static void fun_declaration(Compiler *c)
+{
+  consume(c, TK_IDENT, "Expect function name.");
+  Value fname = variable(c).first;
+  if (find_local(c->cur_scope, fname, FIND_CUR) != -1) {
+    errorf(c, "Already a variable with this name in this scope.");
+    return;
+  }
+  function(c, fname, false /* is_method */);
+}
+
+static void method(Compiler *c)
+{
+  consume(c, TK_IDENT, "Expect method name.");
+  Value fname = variable(c).first;
+  function(c, fname, true /* is_method */);
 }
 
 static void class_declaration(Compiler *c)
 {
+  bool old_in_class = c->in_class;
+  c->in_class = true;
+
   consume(c, TK_IDENT, "Expect class name.");
   Value cname = variable(c).first;
 
   emit_bytes(c, OP_CLASS, make_constant(c, cname));
   defvar(c, cname);
 
+  // push class to stack for defining methods
+  getvar(c, cname);
+
   consume(c, TK_LEFT_BRACE, "Expect '{' before class body.");
+  while (!check(c, TK_EOF) && !check(c, TK_RIGHT_BRACE)) {
+    method(c);
+  }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after class body.");
+
+  emit_byte(c, OP_POP);
+
+  c->in_class = old_in_class;
 }
 
 static void declaration(Compiler *c)
@@ -973,7 +1013,9 @@ static void setup()
   nud_symbol(TK_RETURN, ret);
 
   just_symbol(TK_CLASS);
-  just_symbol(TK_THIS);
+
+  nud_symbol(TK_THIS, this);
+
   just_symbol(TK_ELSE);
   just_symbol(TK_IF);
   just_symbol(TK_VAR);

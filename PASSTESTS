@@ -16,10 +16,13 @@
 ./test/call/object.lox
 ./test/call/string.lox
 ./test/class/empty.lox
+./test/class/local_reference_self.lox
+./test/class/reference_self.lox
 ./test/closure/assign_to_closure.lox
 ./test/closure/assign_to_shadowed_later.lox
 ./test/closure/close_over_function_parameter.lox
 ./test/closure/close_over_later_variable.lox
+./test/closure/close_over_method_parameter.lox
 ./test/closure/closed_closure_in_function.lox
 ./test/closure/nested_closure.lox
 ./test/closure/open_closure_in_function.lox
@@ -33,9 +36,13 @@
 ./test/comments/only_line_comment_and_line.lox
 ./test/comments/unicode.lox
 ./test/constructor/default.lox
+./test/constructor/init_not_method.lox
 ./test/empty_file.lox
 ./test/field/call_function_field.lox
 ./test/field/call_nonfunction_field.lox
+./test/field/get_and_set_method.lox
+./test/field/method.lox
+./test/field/method_binds_this.lox
 ./test/field/set_evaluation_order.lox
 ./test/field/set_on_bool.lox
 ./test/field/set_on_class.lox
@@ -79,8 +86,14 @@
 ./test/logical_operator/and_truth.lox
 ./test/logical_operator/or.lox
 ./test/logical_operator/or_truth.lox
+./test/method/arity.lox
+./test/method/empty_block.lox
+./test/method/extra_arguments.lox
+./test/method/missing_arguments.lox
 ./test/method/not_found.lox
+./test/method/print_bound_method.lox
 ./test/method/too_many_arguments.lox
+./test/method/too_many_parameters.lox
 ./test/nil/literal.lox
 ./test/number/decimal_point_at_eof.lox
 ./test/number/leading_dot.lox
@@ -124,13 +137,21 @@
 ./test/return/after_while.lox
 ./test/return/at_top_level.lox
 ./test/return/in_function.lox
+./test/return/in_method.lox
 ./test/return/return_nil_if_no_value.lox
 ./test/string/literals.lox
 ./test/string/multiline.lox
+./test/this/closure.lox
+./test/this/nested_class.lox
+./test/this/nested_closure.lox
+./test/this/this_at_top_level.lox
+./test/this/this_in_method.lox
+./test/this/this_in_top_level_function.lox
 ./test/variable/duplicate_local.lox
 ./test/variable/early_bound.lox
 ./test/variable/in_middle_of_block.lox
 ./test/variable/in_nested_block.lox
+./test/variable/local_from_method.lox
 ./test/variable/redeclare_global.lox
 ./test/variable/redefine_global.lox
 ./test/variable/scope_reuse_in_different_blocks.lox
@@ -153,4 +174,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 155 Pass Rate: 58.27%
+=== Total: 266 Passed: 176 Pass Rate: 66.17%

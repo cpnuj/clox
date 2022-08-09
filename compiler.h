@@ -40,6 +40,9 @@ typedef struct {
   Scope *cur_scope;
   Chunk *cur_chunk; // Compiling chunk
 
+  // in_class is true while compiling class declaration
+  bool in_class;
+
   int error;
   int panic;
   char errmsg[128];

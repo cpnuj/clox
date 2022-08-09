@@ -188,6 +188,7 @@ ObjectClass *class_new(ObjectString *name)
                                       NULL, class_format, none_destructor);
 
   klass->name = name;
+  map_init(&klass->methods);
   return klass;
 }
 
@@ -208,6 +209,24 @@ ObjectInstance *instance_new(ObjectClass *klass)
   ins->klass = klass;
   map_init(&ins->fields);
   return ins;
+}
+
+void bound_method_format(Object *obj)
+{
+  ObjectBoundMethod *bm = (ObjectBoundMethod *)obj;
+  closure_format(bm->method);
+}
+
+ObjectBoundMethod *bound_method_new(ObjectClosure *method, ObjectInstance *ins)
+{
+  ObjectBoundMethod *bm;
+  bm = (ObjectBoundMethod *)object_alloc(sizeof(ObjectBoundMethod),
+                                         OBJ_BOUND_METHOD, nohash, NULL,
+                                         bound_method_format, none_destructor);
+
+  bm->method = method;
+  bm->receiver = ins;
+  return bm;
 }
 
 Value value_make_string(char *str, int len)

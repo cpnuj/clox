@@ -72,6 +72,7 @@ Value native_clock(int, Value *);
 typedef struct {
   Object base;
   ObjectString *name;
+  Map methods;
 } ObjectClass;
 
 ObjectClass *class_new(ObjectString *);
@@ -83,6 +84,14 @@ typedef struct {
 } ObjectInstance;
 
 ObjectInstance *instance_new(ObjectClass *);
+
+typedef struct {
+  Object base;
+  ObjectClosure *method;
+  ObjectInstance *receiver;
+} ObjectBoundMethod;
+
+ObjectBoundMethod *bound_method_new(ObjectClosure *, ObjectInstance *);
 
 #define is_string(value)                                                       \
   (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
@@ -102,6 +111,9 @@ ObjectInstance *instance_new(ObjectClass *);
 #define is_instance(value)                                                     \
   (is_object(value) && object_is(value_as_obj(value), OBJ_INSTANCE))
 
+#define is_bound_method(value)                                                 \
+  (is_object(value) && object_is(value_as_obj(value), OBJ_BOUND_METHOD))
+
 // Macros cast value to specific object
 #define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
 
@@ -115,6 +127,9 @@ ObjectInstance *instance_new(ObjectClass *);
 
 #define value_as_instance(value)                                               \
   (object_as(value_as_obj(value), ObjectInstance))
+
+#define value_as_bound_method(value)                                           \
+  (object_as(value_as_obj(value), ObjectBoundMethod))
 
 Value value_make_ident(char *, int);
 Value value_make_string(char *, int);

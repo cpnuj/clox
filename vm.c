@@ -35,6 +35,7 @@ void op_closure(VM *vm);
 void op_class(VM *vm);
 void op_get_filed(VM *vm);
 void op_set_filed(VM *vm);
+void op_method(VM *vm);
 void op_return(VM *vm);
 void op_print(VM *vm);
 
@@ -161,8 +162,11 @@ void vm_run(VM *vm)
       vm->gc_threshold = mem_alloc() * GC_HEAP_GROW_FACTOR;
     }
 
-#ifdef DEBUG_GC
+#ifdef DEBUG_RUNTIME
     vm_debug(vm);
+#endif
+
+#ifdef DEBUG_GC
     vm_gc(vm);
 #endif
 
@@ -304,6 +308,8 @@ void run_instruction(VM *vm, uint8_t i)
     return op_get_filed(vm);
   case OP_SET_FIELD:
     return op_set_filed(vm);
+  case OP_METHOD:
+    return op_method(vm);
 
   case OP_RETURN:
     return op_return(vm);
@@ -533,6 +539,12 @@ static void call_initializer(VM *vm, int arity, ObjectClass *klass)
   vm_push(vm, value_make_object(instance_new(klass)));
 }
 
+static void call_bound_method(VM *vm, int arity, ObjectBoundMethod *bm)
+{
+  call_fun(vm, arity, bm->method);
+  vm_push(vm, value_make_object(bm->receiver));
+}
+
 void op_call(VM *vm)
 {
   uint8_t arity = fetch_code(vm);
@@ -544,6 +556,8 @@ void op_call(VM *vm)
     call_native(vm, arity, value_as_native(vcallee));
   } else if (is_class(vcallee)) {
     call_initializer(vm, arity, value_as_class(vcallee));
+  } else if (is_bound_method(vcallee)) {
+    call_bound_method(vm, arity, value_as_bound_method(vcallee));
   } else {
     vm_errorf(vm, "Can only call functions and classes.");
   }
@@ -584,6 +598,9 @@ void op_get_filed(VM *vm)
   Value value;
   if (map_get(&ins->fields, field, &value)) {
     vm_push(vm, value);
+  } else if (map_get(&ins->klass->methods, field, &value)) {
+    ObjectClosure *method = (ObjectClosure *)value_as_obj(value);
+    vm_push(vm, value_make_object(bound_method_new(method, ins)));
   } else {
     ObjectString *field_name = value_as_string(field);
     vm_errorf(vm, "Undefined property '%s'.", field_name->str);
@@ -601,6 +618,14 @@ void op_set_filed(VM *vm)
   }
   ObjectInstance *ins = value_as_instance(vins);
   map_put(&ins->fields, field, value);
+}
+
+void op_method(VM *vm)
+{
+  Value name = fetch_constant(vm);
+  Value method = vm_pop(vm);
+  ObjectClass *klass = (ObjectClass *)value_as_obj(vm_top(vm));
+  map_put(&klass->methods, name, method);
 }
 
 void op_return(VM *vm)
@@ -622,6 +647,16 @@ void op_print(VM *vm)
   }
   value_print(value);
   printf("\n");
+}
+
+static void mark_map(Map *map, ValueArray *wset)
+{
+  MapIter *iter = map_iter_new(map);
+  while (map_iter_next(iter)) {
+    value_array_write(wset, iter->key);
+    value_array_write(wset, iter->val);
+  }
+  map_iter_close(iter);
 }
 
 static void mark_object(Object *obj, ValueArray *wset)
@@ -660,11 +695,19 @@ static void mark_object(Object *obj, ValueArray *wset)
   case OBJ_CLASS: {
     ObjectClass *klass = (ObjectClass *)obj;
     value_array_write(wset, value_make_object(klass->name));
+    mark_map(&klass->methods, wset);
   }
 
   case OBJ_INSTANCE: {
     ObjectInstance *ins = (ObjectInstance *)obj;
     value_array_write(wset, value_make_object(ins->klass));
+    mark_map(&ins->fields, wset);
+  }
+
+  case OBJ_BOUND_METHOD: {
+    ObjectBoundMethod *bm = (ObjectBoundMethod *)obj;
+    value_array_write(wset, value_make_object(bm->method));
+    value_array_write(wset, value_make_object(bm->receiver));
   }
 
   default:
@@ -686,12 +729,7 @@ static void mark_root(VM *vm, ValueArray *wset)
     value_array_write(wset, value_array_get(&vm->constants, i));
   }
 
-  MapIter *iter = map_iter_new(&vm->globals);
-  while (map_iter_next(iter)) {
-    value_array_write(wset, iter->key);
-    value_array_write(wset, iter->val);
-  }
-  map_iter_close(iter);
+  mark_map(&vm->globals, wset);
 
   for (Value *ss = vm->stack; ss <= vm->sp; ss++) {
     value_array_write(wset, *ss);

@@ -22,6 +22,7 @@ typedef enum {
   OBJ_NATIVE,
   OBJ_CLASS,
   OBJ_INSTANCE,
+  OBJ_BOUND_METHOD,
 } object_t;
 
 typedef struct Object {
