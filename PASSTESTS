@@ -185,4 +185,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 266 Passed: 187 Pass Rate: 70.30%
+=== Total: 255 Passed: 187 Pass Rate: 73.33%
