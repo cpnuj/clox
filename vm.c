@@ -340,12 +340,8 @@ void op_negative(VM *vm)
 void op_not(VM *vm)
 {
   Value value = vm_pop(vm);
-  if (value.type != VT_BOOL) {
-    vm_error(vm, "type error: need boolean type");
-    return;
-  }
-  bool boolean = value_as_bool(value);
-  vm_push(vm, value_make_bool(!boolean));
+  bool res = !value_truable(value);
+  vm_push(vm, value_make_bool(res));
 }
 
 Value concatenate(Value v1, Value v2)
@@ -434,7 +430,6 @@ void op_binary(VM *vm, uint8_t op)
 
 #undef BINARY_OP_CAL
 #undef BINARY_OP_COMP
-#undef BINARY_OP_LOGIC
 }
 
 static Map *globals(VM *vm) { return &vm->globals; }
@@ -511,7 +506,7 @@ void op_jmp_back(VM *vm) { cur_frame(vm)->pc -= fetch_int16(vm); }
 void op_jmp_on_false(VM *vm)
 {
   int offset = fetch_int16(vm);
-  if (value_is_false(vm_top(vm))) {
+  if (!value_truable(vm_top(vm))) {
     cur_frame(vm)->pc += offset;
   }
 }

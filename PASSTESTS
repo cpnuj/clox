@@ -113,6 +113,7 @@
 ./test/method/missing_arguments.lox
 ./test/method/not_found.lox
 ./test/method/print_bound_method.lox
+./test/method/refer_to_name.lox
 ./test/method/too_many_arguments.lox
 ./test/method/too_many_parameters.lox
 ./test/nil/literal.lox
@@ -133,6 +134,8 @@
 ./test/operator/divide_nonnum_num.lox
 ./test/operator/divide_num_nonnum.lox
 ./test/operator/equals.lox
+./test/operator/equals_class.lox
+./test/operator/equals_method.lox
 ./test/operator/greater_nonnum_num.lox
 ./test/operator/greater_num_nonnum.lox
 ./test/operator/greater_or_equal_nonnum_num.lox
@@ -146,6 +149,8 @@
 ./test/operator/multiply_num_nonnum.lox
 ./test/operator/negate.lox
 ./test/operator/negate_nonnum.lox
+./test/operator/not.lox
+./test/operator/not_class.lox
 ./test/operator/not_equals.lox
 ./test/operator/subtract.lox
 ./test/operator/subtract_nonnum_num.lox
@@ -199,4 +204,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 255 Passed: 201 Pass Rate: 78.82%
+=== Total: 255 Passed: 206 Pass Rate: 80.78%

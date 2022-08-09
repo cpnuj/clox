@@ -876,7 +876,12 @@ static void function(Compiler *c, Value fname, bool is_method)
   scope_init(&scope);
   frame_enter(c, &scope);
 
-  defvar(c, fname);
+  if (is_method) {
+    // method cannot refer to itself only by name
+    defvar(c, value_make_nil());
+  } else {
+    defvar(c, fname);
+  }
   for (int i = 0; i < arity; i++) {
     defvar(c, paras[i]);
   }

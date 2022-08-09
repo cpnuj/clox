@@ -77,10 +77,13 @@ void object_free(Object *obj) { return obj->destructor(obj); }
 
 bool object_equal(Object *obj1, Object *obj2)
 {
-  if (obj1->type == obj2->type && obj1->hash == obj2->hash) {
-    return obj1->equal(obj1, obj2);
+  if (obj1->type != obj2->type) {
+    return false;
   }
-  return false;
+  if (obj1->equal == NULL) {
+    return obj1 == obj2;
+  }
+  return obj1->equal(obj1, obj2);
 }
 
 void object_print(Object *obj)
@@ -174,14 +177,14 @@ uint32_t value_hash(Value value)
   panic("unknown type of value");
 }
 
-bool value_is_false(Value value)
+bool value_truable(Value value)
 {
   if (is_nil(value)) {
-    return true;
-  } else if (is_bool(value)) {
-    return value_as_bool(value) == false;
-  } else {
     return false;
+  } else if (is_bool(value)) {
+    return value_as_bool(value);
+  } else {
+    return true;
   }
 }
 

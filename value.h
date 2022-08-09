@@ -90,7 +90,7 @@ Value value_make_number(double);
 Value value_make_object(Object *);
 
 uint32_t value_hash(Value);
-bool value_is_false(Value);
+bool value_truable(Value);
 bool value_equal(Value, Value);
 void value_print(Value v);
 
