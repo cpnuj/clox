@@ -94,42 +94,40 @@ typedef struct {
 ObjectBoundMethod *bound_method_new(ObjectClosure *, ObjectInstance *);
 
 #define is_string(value)                                                       \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_STRING))
+  (is_object(value) && object_is(as_object(value), OBJ_STRING))
 
 #define is_fun(value)                                                          \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_FUNCTION))
+  (is_object(value) && object_is(as_object(value), OBJ_FUNCTION))
 
 #define is_closure(value)                                                      \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_CLOSURE))
+  (is_object(value) && object_is(as_object(value), OBJ_CLOSURE))
 
 #define is_native(value)                                                       \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_NATIVE))
+  (is_object(value) && object_is(as_object(value), OBJ_NATIVE))
 
 #define is_class(value)                                                        \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_CLASS))
+  (is_object(value) && object_is(as_object(value), OBJ_CLASS))
 
 #define is_instance(value)                                                     \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_INSTANCE))
+  (is_object(value) && object_is(as_object(value), OBJ_INSTANCE))
 
 #define is_bound_method(value)                                                 \
-  (is_object(value) && object_is(value_as_obj(value), OBJ_BOUND_METHOD))
+  (is_object(value) && object_is(as_object(value), OBJ_BOUND_METHOD))
 
 // Macros cast value to specific object
-#define value_as_string(value) (object_as(value_as_obj(value), ObjectString))
+#define as_string(value) (object_as(as_object(value), ObjectString))
 
-#define value_as_fun(value) (object_as(value_as_obj(value), ObjectFunction))
+#define as_function(value) (object_as(as_object(value), ObjectFunction))
 
-#define value_as_closure(value) (object_as(value_as_obj(value), ObjectClosure))
+#define as_closure(value) (object_as(as_object(value), ObjectClosure))
 
-#define value_as_native(value) (object_as(value_as_obj(value), ObjectNative))
+#define as_native(value) (object_as(as_object(value), ObjectNative))
 
-#define value_as_class(value) (object_as(value_as_obj(value), ObjectClass))
+#define as_class(value) (object_as(as_object(value), ObjectClass))
 
-#define value_as_instance(value)                                               \
-  (object_as(value_as_obj(value), ObjectInstance))
+#define as_instance(value) (object_as(as_object(value), ObjectInstance))
 
-#define value_as_bound_method(value)                                           \
-  (object_as(value_as_obj(value), ObjectBoundMethod))
+#define as_bound_method(value) (object_as(as_object(value), ObjectBoundMethod))
 
 Value value_make_ident(char *, int);
 Value value_make_string(char *, int);

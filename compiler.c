@@ -94,10 +94,10 @@ static Value make_string(Compiler *c, const char *src, int len)
 
   MapIter *iter = map_iter_new(&c->interned_strings);
   while (map_iter_next(iter)) {
-    if (len != value_as_string(iter->key)->len) {
+    if (len != as_string(iter->key)->len) {
       continue;
     }
-    if (strncmp(src, value_as_string(iter->key)->str, len) == 0) {
+    if (strncmp(src, as_string(iter->key)->str, len) == 0) {
       ret = iter->key;
       break;
     }
@@ -116,7 +116,7 @@ static Value make_string(Compiler *c, const char *src, int len)
 // created, return its idx. Else, add new constant to compiling chunk.
 static uint8_t make_constant(Compiler *c, Value value)
 {
-#define value_as_int(value) ((int)value_as_number(value))
+#define value_as_int(value) ((int)as_number(value))
   Value vidx;
   if (map_get(&c->mconstants, value, &vidx)) {
     return (uint8_t)value_as_int(vidx);
@@ -896,13 +896,13 @@ static void function(Compiler *c, Value fname, bool is_method)
 
   int arity = parameters(c);
 
-  Value fun = value_make_fun(arity, value_as_string(fname));
+  Value fun = value_make_fun(arity, as_string(fname));
 
   consume(c, TK_LEFT_BRACE, "Expect '{' before function body.");
 
   // switch compiling chunk
   Chunk *enclosing = c->cur_chunk;
-  ObjectFunction *funobj = (ObjectFunction *)value_as_obj(fun);
+  ObjectFunction *funobj = (ObjectFunction *)as_object(fun);
   c->cur_chunk = &funobj->chunk;
 
   block_stmt(c);
@@ -915,7 +915,7 @@ static void function(Compiler *c, Value fname, bool is_method)
   emit_byte(c, OP_RETURN);
 
 #ifdef DEBUG
-  debug_chunk(c->cur_chunk, c->constants, value_as_string(fname)->str);
+  debug_chunk(c->cur_chunk, c->constants, as_string(fname)->str);
 #endif
 
   funobj->upvalue_size = scope.upvalue_size;

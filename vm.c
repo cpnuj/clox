@@ -55,8 +55,7 @@ void vm_init(VM *vm)
 {
   vm->sp = vm->stack - 1;
   vm->error = 0;
-  vm->vmain
-      = value_make_fun(0, value_as_string(value_make_string("script", 6)));
+  vm->vmain = value_make_fun(0, as_string(value_make_string("script", 6)));
 
   value_array_init(&vm->constants);
   value_array_write(&vm->constants, value_make_object(string_copy("init", 4)));
@@ -160,8 +159,7 @@ void vm_run(VM *vm)
 {
   vm->done = 0;
   vm->cur_frame = -1;
-  vm->main_closure
-      = value_as_closure(value_make_closure(value_as_fun(vm->vmain)));
+  vm->main_closure = as_closure(value_make_closure(as_function(vm->vmain)));
   vm_push(vm, vm->vmain);
   frame_push(vm, vm->main_closure);
   while (1) {
@@ -343,7 +341,7 @@ void op_negative(VM *vm)
     vm_errorf(vm, "Operand must be a number.");
     return;
   }
-  double number = value_as_number(value);
+  double number = as_number(value);
   vm_push(vm, value_make_number(-number));
 }
 
@@ -357,8 +355,8 @@ void op_not(VM *vm)
 Value concatenate(Value v1, Value v2)
 {
   ObjectString *s1, *s2;
-  s1 = value_as_string(v1);
-  s2 = value_as_string(v2);
+  s1 = as_string(v1);
+  s2 = as_string(v2);
   return value_make_object(string_concat(s1, s2));
 }
 
@@ -372,13 +370,13 @@ void op_binary(VM *vm, uint8_t op)
 
 #define op_calculation(op)                                                     \
   if (is_number(v1) && is_number(v2))                                          \
-    v = value_make_number(value_as_number(v1) op value_as_number(v2));         \
+    v = value_make_number(as_number(v1) op as_number(v2));                     \
   else                                                                         \
     vm_errorf(vm, "Operands must be numbers.")
 
 #define op_comparison(op)                                                      \
   if (is_number(v1) && is_number(v2))                                          \
-    v = value_make_bool(value_as_number(v1) op value_as_number(v2));           \
+    v = value_make_bool(as_number(v1) op as_number(v2));                       \
   else                                                                         \
     vm_errorf(vm, "Operands must be numbers.")
 
@@ -386,7 +384,7 @@ void op_binary(VM *vm, uint8_t op)
   // calculation
   case OP_ADD:
     if (is_number(v1) && is_number(v2))
-      v = value_make_number(value_as_number(v1) + value_as_number(v2));
+      v = value_make_number(as_number(v1) + as_number(v2));
     else if (is_string(v1) && is_string(v2))
       v = concatenate(v1, v2);
     else
@@ -460,7 +458,7 @@ void op_set_global(VM *vm)
   Value value = vm_pop(vm);
 
   if (!map_get(globals(vm), name, NULL)) {
-    vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
+    vm_errorf(vm, "Undefined variable '%s'.", as_string(name)->str);
     return;
   }
 
@@ -474,7 +472,7 @@ void op_get_global(VM *vm)
   Value value;
 
   if (!map_get(globals(vm), name, &value)) {
-    vm_errorf(vm, "Undefined variable '%s'.", value_as_string(name)->str);
+    vm_errorf(vm, "Undefined variable '%s'.", as_string(name)->str);
     return;
   }
   vm_push(vm, value);
@@ -559,8 +557,7 @@ static void call_initializer(VM *vm, int arity, ObjectClass *klass)
 
   Value initializer_value;
   if (map_get(&klass->methods, get_init_const(vm), &initializer_value)) {
-    ObjectClosure *initializer
-        = (ObjectClosure *)value_as_obj(initializer_value);
+    ObjectClosure *initializer = (ObjectClosure *)as_object(initializer_value);
     ObjectBoundMethod *bm = bound_method_new(initializer, ins);
     call_bound_method(vm, arity, bm);
   } else {
@@ -575,13 +572,13 @@ static void call_initializer(VM *vm, int arity, ObjectClass *klass)
 static void call_value(VM *vm, int arity, Value value)
 {
   if (is_closure(value)) {
-    call_fun(vm, arity, value_as_closure(value));
+    call_fun(vm, arity, as_closure(value));
   } else if (is_native(value)) {
-    call_native(vm, arity, value_as_native(value));
+    call_native(vm, arity, as_native(value));
   } else if (is_class(value)) {
-    call_initializer(vm, arity, value_as_class(value));
+    call_initializer(vm, arity, as_class(value));
   } else if (is_bound_method(value)) {
-    call_bound_method(vm, arity, value_as_bound_method(value));
+    call_bound_method(vm, arity, as_bound_method(value));
   } else {
     vm_errorf(vm, "Can only call functions and classes.");
   }
@@ -597,7 +594,7 @@ void op_call(VM *vm)
 void op_closure(VM *vm)
 {
   Value proto = fetch_constant(vm);
-  ObjectClosure *closure = closure_new(value_as_fun(proto));
+  ObjectClosure *closure = closure_new(as_function(proto));
   for (int i = 0; i < closure->upvalue_size; i++) {
     uint8_t idx = fetch_code(vm);
     uint8_t from_local = fetch_code(vm);
@@ -612,7 +609,7 @@ void op_closure(VM *vm)
 void op_class(VM *vm)
 {
   Value cname = fetch_constant(vm);
-  ObjectClass *klass = class_new(value_as_string(cname));
+  ObjectClass *klass = class_new(as_string(cname));
   vm_push(vm, value_make_object(klass));
 }
 
@@ -625,15 +622,15 @@ void op_get_filed(VM *vm)
     return;
   }
 
-  ObjectInstance *ins = value_as_instance(vins);
+  ObjectInstance *ins = as_instance(vins);
   Value value;
   if (map_get(&ins->fields, field, &value)) {
     vm_push(vm, value);
   } else if (map_get(&ins->klass->methods, field, &value)) {
-    ObjectClosure *method = (ObjectClosure *)value_as_obj(value);
+    ObjectClosure *method = (ObjectClosure *)as_object(value);
     vm_push(vm, value_make_object(bound_method_new(method, ins)));
   } else {
-    ObjectString *field_name = value_as_string(field);
+    ObjectString *field_name = as_string(field);
     vm_errorf(vm, "Undefined property '%s'.", field_name->str);
   }
 }
@@ -647,7 +644,7 @@ void op_set_filed(VM *vm)
     vm_errorf(vm, "Only instances have fields.");
     return;
   }
-  ObjectInstance *ins = value_as_instance(vins);
+  ObjectInstance *ins = as_instance(vins);
   map_put(&ins->fields, field, value);
   vm_push(vm, value);
 }
@@ -656,7 +653,7 @@ void op_method(VM *vm)
 {
   Value name = fetch_constant(vm);
   Value method = vm_pop(vm);
-  ObjectClass *klass = (ObjectClass *)value_as_obj(vm_top(vm));
+  ObjectClass *klass = (ObjectClass *)as_object(vm_top(vm));
   map_put(&klass->methods, name, method);
 }
 
@@ -665,7 +662,7 @@ void op_invoke(VM *vm)
   uint8_t arity = fetch_code(vm);
   Value field = fetch_constant(vm);
 
-  ObjectInstance *ins = (ObjectInstance *)value_as_obj(vm_topn(vm, arity));
+  ObjectInstance *ins = (ObjectInstance *)as_object(vm_topn(vm, arity));
   ObjectClass *klass = ins->klass;
 
   Value method;
@@ -677,10 +674,10 @@ void op_invoke(VM *vm)
   }
 
   if (!map_get(&klass->methods, field, &method)) {
-    vm_errorf(vm, "Undefined property '%s'.", value_as_string(field)->str);
+    vm_errorf(vm, "Undefined property '%s'.", as_string(field)->str);
     return;
   }
-  call_fun(vm, arity, value_as_closure(method));
+  call_fun(vm, arity, as_closure(method));
 }
 
 void op_return(VM *vm)
@@ -775,7 +772,7 @@ static void mark_value(Value value, ValueArray *wset)
   if (!is_object(value)) {
     return;
   }
-  mark_object(value_as_obj(value), wset);
+  mark_object(as_object(value), wset);
 }
 
 static void mark_root(VM *vm, ValueArray *wset)

@@ -12,7 +12,7 @@ VM vm;
 
 void interprete(char *src)
 {
-  int err = compile(src, value_as_fun(vm.vmain), &vm.constants);
+  int err = compile(src, as_function(vm.vmain), &vm.constants);
   if (err) {
     exit(74);
   }

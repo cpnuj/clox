@@ -170,11 +170,11 @@ uint32_t value_hash(Value value)
   if (is_nil(value)) {
     return 0;
   } else if (is_bool(value)) {
-    return (value_as_bool(value) == true) ? 1 : 0;
+    return (as_bool(value) == true) ? 1 : 0;
   } else if (is_number(value)) {
-    return hash_double(value_as_number(value));
+    return hash_double(as_number(value));
   } else if (is_object(value)) {
-    return value_as_obj(value)->hash;
+    return as_object(value)->hash;
   }
   panic("unknown type of value");
 }
@@ -184,7 +184,7 @@ bool value_truable(Value value)
   if (is_nil(value)) {
     return false;
   } else if (is_bool(value)) {
-    return value_as_bool(value);
+    return as_bool(value);
   } else {
     return true;
   }
@@ -199,11 +199,11 @@ bool value_equal(Value v1, Value v2)
   case VT_NIL:
     return true;
   case VT_BOOL:
-    return value_as_bool(v1) == value_as_bool(v2);
+    return as_bool(v1) == as_bool(v2);
   case VT_NUM:
-    return value_as_number(v1) == value_as_number(v2);
+    return as_number(v1) == as_number(v2);
   case VT_OBJ:
-    return object_equal(value_as_obj(v1), value_as_obj(v2));
+    return object_equal(as_object(v1), as_object(v2));
   default:
     panic("unknown value type");
   }
@@ -216,17 +216,17 @@ void value_print(Value v)
     printf("nil");
     break;
   case VT_NUM:
-    printf("%g", value_as_number(v));
+    printf("%g", as_number(v));
     break;
   case VT_BOOL:
-    if (value_as_bool(v) == true) {
+    if (as_bool(v) == true) {
       printf("true");
     } else {
       printf("false");
     }
     break;
   case VT_OBJ:
-    object_print(value_as_obj(v));
+    object_print(as_object(v));
     break;
   }
 }

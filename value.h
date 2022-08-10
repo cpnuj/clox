@@ -75,9 +75,9 @@ struct Value {
 
 typedef struct Value Value;
 
-#define value_as_bool(value) (value.as.boolean)
-#define value_as_number(value) (value.as.number)
-#define value_as_obj(value) (value.as.obj)
+#define as_bool(value) (value.as.boolean)
+#define as_number(value) (value.as.number)
+#define as_object(value) (value.as.obj)
 
 #define is_nil(value) (value.type == VT_NIL)
 #define is_number(value) (value.type == VT_NUM)
