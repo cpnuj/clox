@@ -44,6 +44,8 @@ typedef enum {
   OP_SET_FIELD,
   OP_METHOD,
   OP_INVOKE,
+  OP_DERIVE,
+  OP_GET_SUPER,
 } op_code;
 
 typedef struct {

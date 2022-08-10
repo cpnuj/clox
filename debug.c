@@ -110,6 +110,10 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return constant_instruction("OP_METHOD", chunk, constants, offset);
   case OP_INVOKE:
     return invoke_instruction("OP_INVOKE", chunk, constants, offset);
+  case OP_DERIVE:
+    return simple_instruction("OP_DERIVE", offset);
+  case OP_GET_SUPER:
+    return constant_instruction("OP_GET_SUPER", chunk, constants, offset);
 
   default:
     printf("Unknown opcode %d\n", instruction);

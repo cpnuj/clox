@@ -17,6 +17,9 @@
 ./test/call/object.lox
 ./test/call/string.lox
 ./test/class/empty.lox
+./test/class/inherit_self.lox
+./test/class/inherited_method.lox
+./test/class/local_inherit_other.lox
 ./test/class/local_reference_self.lox
 ./test/class/reference_self.lox
 ./test/closure/assign_to_closure.lox
@@ -103,6 +106,13 @@
 ./test/if/truth.lox
 ./test/if/var_in_else.lox
 ./test/if/var_in_then.lox
+./test/inheritance/constructor.lox
+./test/inheritance/inherit_from_function.lox
+./test/inheritance/inherit_from_nil.lox
+./test/inheritance/inherit_from_number.lox
+./test/inheritance/inherit_methods.lox
+./test/inheritance/parenthesized_superclass.lox
+./test/inheritance/set_fields_from_base_class.lox
 ./test/logical_operator/and.lox
 ./test/logical_operator/and_truth.lox
 ./test/logical_operator/or.lox
@@ -171,6 +181,25 @@
 ./test/scanning/whitespace.lox
 ./test/string/literals.lox
 ./test/string/multiline.lox
+./test/super/bound_method.lox
+./test/super/call_other_method.lox
+./test/super/call_same_method.lox
+./test/super/closure.lox
+./test/super/constructor.lox
+./test/super/extra_arguments.lox
+./test/super/indirectly_inherited.lox
+./test/super/missing_arguments.lox
+./test/super/no_superclass_bind.lox
+./test/super/no_superclass_call.lox
+./test/super/no_superclass_method.lox
+./test/super/parenthesized.lox
+./test/super/reassign_superclass.lox
+./test/super/super_in_closure_in_inherited_method.lox
+./test/super/super_in_inherited_method.lox
+./test/super/super_in_top_level_function.lox
+./test/super/super_without_dot.lox
+./test/super/super_without_name.lox
+./test/super/this_in_superclass_method.lox
 ./test/this/closure.lox
 ./test/this/nested_class.lox
 ./test/this/nested_closure.lox
@@ -204,4 +233,4 @@
 ./test/while/return_inside.lox
 ./test/while/syntax.lox
 ./test/while/var_in_body.lox
-=== Total: 255 Passed: 206 Pass Rate: 80.78%
+=== Total: 255 Passed: 235 Pass Rate: 92.16%

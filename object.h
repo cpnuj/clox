@@ -69,7 +69,7 @@ typedef struct {
 
 Value native_clock(int, Value *);
 
-typedef struct {
+typedef struct ObjectClass {
   Object base;
   ObjectString *name;
   Map methods;

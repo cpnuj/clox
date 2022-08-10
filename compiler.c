@@ -499,6 +499,29 @@ static Context this(Compiler *c)
   return variable(c);
 }
 
+static Context _super(Compiler *c)
+{
+  if (!c->in_class) {
+    errorf(c, "Can't use 'super' outside of a class.");
+    return empty_context(TK_ERR);
+  }
+  if (!c->has_super) {
+    errorf(c, "Can't use 'super' in a class with no superclass.");
+    return empty_context(TK_ERR);
+  }
+
+  consume(c, TK_DOT, "Expect '.' after 'super'.");
+  consume(c, TK_IDENT, "Expect superclass method name.");
+
+  Value name = variable(c).first;
+
+  getvar(c, make_string(c, "this", 4));
+  getvar(c, make_string(c, "super", 5));
+  emit_bytes(c, OP_GET_SUPER, make_constant(c, name));
+
+  return empty_context(TK_SUPER);
+}
+
 static Context negative(Compiler *c)
 {
   Context right = expression(c, BP_UNARY);
@@ -971,16 +994,37 @@ static void method(Compiler *c)
 static void class_declaration(Compiler *c)
 {
   bool old_in_class = c->in_class;
+  bool old_has_super = c->has_super;
   c->in_class = true;
 
   consume(c, TK_IDENT, "Expect class name.");
-  Value cname = variable(c).first;
+  Value name = variable(c).first;
 
-  emit_bytes(c, OP_CLASS, make_constant(c, cname));
-  defvar(c, cname);
+  emit_bytes(c, OP_CLASS, make_constant(c, name));
+  defvar(c, name);
 
-  // push class to stack for defining methods
-  getvar(c, cname);
+  scope_in(c->cur_scope);
+
+  if (match(c, TK_LESS)) {
+
+    c->has_super = true;
+
+    consume(c, TK_IDENT, "Expect superclass name.");
+    Context ctx = variable(c);
+    if (value_equal(ctx.first, name)) {
+      errorf(c, "A class can't inherit from itself.");
+      return;
+    }
+    eval(c, ctx);
+
+    defvar(c, make_string(c, "super", 5));
+    getvar(c, name);
+    emit_byte(c, OP_DERIVE);
+
+  } else {
+    c->has_super = false;
+    getvar(c, name);
+  }
 
   consume(c, TK_LEFT_BRACE, "Expect '{' before class body.");
   while (!check(c, TK_EOF) && !check(c, TK_RIGHT_BRACE)) {
@@ -988,9 +1032,10 @@ static void class_declaration(Compiler *c)
   }
   consume(c, TK_RIGHT_BRACE, "Expect '}' after class body.");
 
-  emit_byte(c, OP_POP);
+  scope_out(c->cur_scope, c);
 
   c->in_class = old_in_class;
+  c->has_super = old_has_super;
 }
 
 static void declaration(Compiler *c)
@@ -1071,7 +1116,8 @@ static void setup()
   just_symbol(TK_VAR);
   just_symbol(TK_WHILE);
   just_symbol(TK_FUN);
-  just_symbol(TK_SUPER);
+
+  nud_symbol(TK_SUPER, _super);
 
   // eof
   just_symbol(TK_EOF);

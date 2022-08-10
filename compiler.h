@@ -43,6 +43,9 @@ typedef struct {
   // in_class is true while compiling class declaration
   bool in_class;
 
+  // has_super is true while compiling class has a super class
+  bool has_super;
+
   // in_initializer is true while compiling a class initializer
   bool in_initializer;
 

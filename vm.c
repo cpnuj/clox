@@ -37,6 +37,8 @@ void op_get_filed(VM *vm);
 void op_set_filed(VM *vm);
 void op_method(VM *vm);
 void op_invoke(VM *vm);
+void op_derive(VM *vm);
+void op_get_super(VM *vm);
 void op_return(VM *vm);
 void op_print(VM *vm);
 
@@ -321,6 +323,10 @@ void run_instruction(VM *vm, uint8_t i)
     return op_method(vm);
   case OP_INVOKE:
     return op_invoke(vm);
+  case OP_DERIVE:
+    return op_derive(vm);
+  case OP_GET_SUPER:
+    return op_get_super(vm);
 
   case OP_RETURN:
     return op_return(vm);
@@ -678,6 +684,39 @@ void op_invoke(VM *vm)
     return;
   }
   call_fun(vm, arity, as_closure(method));
+}
+
+void op_derive(VM *vm)
+{
+  if (!is_class(vm_topn(vm, 1))) {
+    vm_errorf(vm, "Superclass must be a class.");
+    return;
+  }
+
+  ObjectClass *klass = as_class(vm_top(vm));
+  ObjectClass *super = as_class(vm_topn(vm, 1));
+
+  MapIter *iter = map_iter_new(&super->methods);
+  while (map_iter_next(iter)) {
+    map_put(&klass->methods, iter->key, iter->val);
+  }
+  map_iter_close(iter);
+}
+
+void op_get_super(VM *vm)
+{
+  Value name = fetch_constant(vm);
+  ObjectClass *_super = as_class(vm_pop(vm));
+  ObjectInstance *ins = as_instance(vm_pop(vm));
+
+  Value value;
+  if (!map_get(&_super->methods, name, &value)) {
+    vm_errorf(vm, "Undefined property '%s'.", as_string(name)->str);
+    return;
+  }
+
+  ObjectBoundMethod *bm = bound_method_new(as_closure(value), ins);
+  vm_push(vm, value_make_object(bm));
 }
 
 void op_return(VM *vm)
