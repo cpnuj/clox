@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdio.h>
 
 #include "map.h"
 #include "memory.h"
@@ -36,7 +37,7 @@ void map_init(Map *map) { _map_init(map, MAP_INIT_SIZE); }
 // will never be invalid since our map should never be full.
 static unsigned int map_find(Map *map, Value key)
 {
-  unsigned int idx = value_hash(key) % map->size;
+  unsigned int idx = value_hash(key) & (map->size - 1);
   for (;;) {
     MapItem item = map->items[idx];
     if (is_free(item)) {
@@ -46,7 +47,7 @@ static unsigned int map_find(Map *map, Value key)
       return idx;
     }
     // open addressing
-    idx = (idx + 1) % map->size;
+    idx = (idx + 1) & (map->size - 1);
   }
 }
 
@@ -55,7 +56,7 @@ static unsigned int map_find(Map *map, Value key)
 static void map_grow(Map *map)
 {
   Map tmp;
-  _map_init(&tmp, map->used * 2);
+  _map_init(&tmp, map->size * 2);
 
   for (int i = 0; i < map->size; i++) {
     MapItem item = map->items[i];
