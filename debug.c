@@ -108,6 +108,8 @@ int debug_instruction(Chunk *chunk, ValueArray *constants, int offset)
     return constant_instruction("OP_SET_FIELD", chunk, constants, offset);
   case OP_METHOD:
     return constant_instruction("OP_METHOD", chunk, constants, offset);
+  case OP_INVOKE:
+    return invoke_instruction("OP_INVOKE", chunk, constants, offset);
 
   default:
     printf("Unknown opcode %d\n", instruction);
@@ -139,5 +141,19 @@ int jmp_instruction(char *name, Chunk *chunk, int sign, int offset)
   int l8 = chunk->code[offset + 2]; // low  8 bit
   int dist = (h8 << 8) | l8;
   printf("%-16s %4d\n", name, sign * dist);
+  return offset + 3;
+}
+
+int invoke_instruction(char *name, Chunk *chunk, ValueArray *constants,
+                       int offset)
+{
+  int arity = chunk->code[offset + 1];
+  int filed = chunk->code[offset + 2];
+
+  printf("%-16s %4d %4d '", name, arity, filed);
+  if (constants != NULL) {
+    value_print(constants->value[filed]);
+  }
+  printf("'\n");
   return offset + 3;
 }

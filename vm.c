@@ -36,6 +36,7 @@ void op_class(VM *vm);
 void op_get_filed(VM *vm);
 void op_set_filed(VM *vm);
 void op_method(VM *vm);
+void op_invoke(VM *vm);
 void op_return(VM *vm);
 void op_print(VM *vm);
 
@@ -95,6 +96,13 @@ Value vm_top(VM *vm)
     assert(0);
   }
   return *vm->sp;
+}
+
+Value vm_topn(VM *vm, int n)
+{
+  Value *p = vm->sp - n;
+  assert(p >= vm->stack);
+  return *p;
 }
 
 static ObjectUpValue *open_upvalue(VM *vm, Value *location)
@@ -313,6 +321,8 @@ void run_instruction(VM *vm, uint8_t i)
     return op_set_filed(vm);
   case OP_METHOD:
     return op_method(vm);
+  case OP_INVOKE:
+    return op_invoke(vm);
 
   case OP_RETURN:
     return op_return(vm);
@@ -540,7 +550,7 @@ static inline Value get_init_const(VM *vm)
 static void call_bound_method(VM *vm, int arity, ObjectBoundMethod *bm)
 {
   call_fun(vm, arity, bm->method);
-  vm_push(vm, value_make_object(bm->receiver));
+  *cur_frame(vm)->bp = value_make_object(bm->receiver);
 }
 
 static void call_initializer(VM *vm, int arity, ObjectClass *klass)
@@ -562,22 +572,26 @@ static void call_initializer(VM *vm, int arity, ObjectClass *klass)
   }
 }
 
-void op_call(VM *vm)
+static void call_value(VM *vm, int arity, Value value)
 {
-  uint8_t arity = fetch_code(vm);
-  Value vcallee = *(vm->sp - arity);
-
-  if (is_closure(vcallee)) {
-    call_fun(vm, arity, value_as_closure(vcallee));
-  } else if (is_native(vcallee)) {
-    call_native(vm, arity, value_as_native(vcallee));
-  } else if (is_class(vcallee)) {
-    call_initializer(vm, arity, value_as_class(vcallee));
-  } else if (is_bound_method(vcallee)) {
-    call_bound_method(vm, arity, value_as_bound_method(vcallee));
+  if (is_closure(value)) {
+    call_fun(vm, arity, value_as_closure(value));
+  } else if (is_native(value)) {
+    call_native(vm, arity, value_as_native(value));
+  } else if (is_class(value)) {
+    call_initializer(vm, arity, value_as_class(value));
+  } else if (is_bound_method(value)) {
+    call_bound_method(vm, arity, value_as_bound_method(value));
   } else {
     vm_errorf(vm, "Can only call functions and classes.");
   }
+}
+
+void op_call(VM *vm)
+{
+  uint8_t arity = fetch_code(vm);
+  Value value = *(vm->sp - arity);
+  call_value(vm, arity, value);
 }
 
 void op_closure(VM *vm)
@@ -644,6 +658,29 @@ void op_method(VM *vm)
   Value method = vm_pop(vm);
   ObjectClass *klass = (ObjectClass *)value_as_obj(vm_top(vm));
   map_put(&klass->methods, name, method);
+}
+
+void op_invoke(VM *vm)
+{
+  uint8_t arity = fetch_code(vm);
+  Value field = fetch_constant(vm);
+
+  ObjectInstance *ins = (ObjectInstance *)value_as_obj(vm_topn(vm, arity));
+  ObjectClass *klass = ins->klass;
+
+  Value method;
+
+  if (map_get(&ins->fields, field, &method)) {
+    *(vm->sp - arity) = method;
+    call_value(vm, arity, method);
+    return;
+  }
+
+  if (!map_get(&klass->methods, field, &method)) {
+    vm_errorf(vm, "Undefined property '%s'.", value_as_string(field)->str);
+    return;
+  }
+  call_fun(vm, arity, value_as_closure(method));
 }
 
 void op_return(VM *vm)

@@ -19,5 +19,6 @@ int debug_instruction(Chunk *, ValueArray *, int);
 int simple_instruction(char *, int);
 int constant_instruction(char *, Chunk *, ValueArray *, int);
 int jmp_instruction(char *, Chunk *, int, int);
+int invoke_instruction(char *, Chunk *, ValueArray *, int);
 
 #endif

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "chunk.h"
 #include "compiler.h"
@@ -570,11 +571,54 @@ static Context assignment(Compiler *c, Context left)
   return empty_context(tk.type);
 }
 
+static int parameters(Compiler *c)
+{
+  int arity = 0;
+  while (match(c, TK_IDENT)) {
+    if (arity >= 255) {
+      errorf(c, "Can't have more than 255 parameters.");
+      return arity;
+    }
+    defvar(c, variable(c).first);
+    arity++;
+    if (!match(c, TK_COMMA)) {
+      break;
+    }
+  }
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
+  return arity;
+}
+
+static int arguments(Compiler *c)
+{
+  int arity = 0;
+  if (!check(c, TK_RIGHT_PAREN)) {
+    do {
+      eval(c, expression(c, BP_NONE));
+      arity++;
+      if (arity > UINT8_MAX) {
+        errorf(c, "Can't have more than 255 arguments.");
+        return arity;
+      }
+    } while (match(c, TK_COMMA));
+  }
+  consume(c, TK_RIGHT_PAREN, "Expect ')' after arguments.");
+  return arity;
+}
+
 static Context dot(Compiler *c, Context left)
 {
   consume(c, TK_IDENT, "Expect property name after '.'.");
   Value field = variable(c).first;
   eval(c, left);
+
+  if (match(c, TK_LEFT_PAREN)) {
+    int arity = arguments(c);
+    emit_byte(c, OP_INVOKE);
+    emit_bytes(c, arity, make_constant(c, field));
+    return empty_context(TK_DOT);
+  }
+
   return unary_context(TK_DOT, field);
 }
 
@@ -641,21 +685,8 @@ static Context infix_or(Compiler *c, Context left)
 static Context call(Compiler *c, Context left)
 {
   eval(c, left);
-
-  int arity = 0;
-  if (!check(c, TK_RIGHT_PAREN)) {
-    do {
-      eval(c, expression(c, BP_NONE));
-      arity++;
-      if (arity > UINT8_MAX) {
-        errorf(c, "Can't have more than 255 arguments.");
-      }
-    } while (match(c, TK_COMMA));
-  }
-  consume(c, TK_RIGHT_PAREN, "Expect ')' after arguments.");
-
+  int arity = arguments(c);
   emit_bytes(c, OP_CALL, (uint8_t)arity);
-
   return empty_context(TK_LEFT_PAREN);
 }
 
@@ -853,41 +884,19 @@ static void function(Compiler *c, Value fname, bool is_method)
 {
   consume(c, TK_LEFT_PAREN, "Expect '(' after function name.");
 
-  // parse parameters
-  int arity = 0;
-  Value paras[255];
-  while (match(c, TK_IDENT)) {
-    if (arity >= 255) {
-      errorf(c, "Can't have more than 255 parameters.");
-      return;
-    }
-    paras[arity] = variable(c).first;
-    arity++;
-    if (!match(c, TK_COMMA)) {
-      break;
-    }
-  }
-
-  consume(c, TK_RIGHT_PAREN, "Expect ')' after parameters.");
-
-  Value fun = value_make_fun(arity, value_as_string(fname));
-
   Scope scope;
   scope_init(&scope);
   frame_enter(c, &scope);
 
   if (is_method) {
-    // method cannot refer to itself only by name
-    defvar(c, value_make_nil());
+    defvar(c, make_string(c, "this", 4));
   } else {
     defvar(c, fname);
   }
-  for (int i = 0; i < arity; i++) {
-    defvar(c, paras[i]);
-  }
-  if (is_method) {
-    defvar(c, make_string(c, "this", 4));
-  }
+
+  int arity = parameters(c);
+
+  Value fun = value_make_fun(arity, value_as_string(fname));
 
   consume(c, TK_LEFT_BRACE, "Expect '{' before function body.");
 
@@ -1114,7 +1123,15 @@ static int compile_chunk(char *src, Chunk *chunk, ValueArray *constants)
 
 int compile(char *src, ObjectFunction *fun, ValueArray *constants)
 {
+#ifdef DEBUG
+  time_t start = clock();
+#endif
+
   int err = compile_chunk(src, &fun->chunk, constants);
+
+#ifdef DEBUG
+  fprintf(stderr, "compile time: %ds\n", (clock() - start) / CLOCKS_PER_SEC);
+#endif
 
 #ifdef DEBUG
   debug_chunk(&fun->chunk, constants, fun->name->str);

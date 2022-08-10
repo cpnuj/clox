@@ -71,6 +71,8 @@ Object *object_alloc(int size, object_t type, uint32_t hash,
   item->equal = equal_fn;
   item->format = format;
   item->destructor = destructor;
+
+  return item;
 }
 
 void object_free(Object *obj) { return obj->destructor(obj); }
